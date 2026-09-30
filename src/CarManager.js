@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CAR_CATALOG, prepareGltfCar, buildProceduralCar, recolorPaint } from './CarModels.js';
-import { classifyCarParts } from './CarParts.js';
+import { classifyCarParts, PART } from './CarParts.js';
 import { PACKAGES } from './Packages.js';
 import { DirtVolume, applyDirtShader } from './DirtVolume.js';
 
@@ -44,6 +44,7 @@ export class CarManager {
     this.lastId = null;
     this.callbacks = { onArrived, onWashed, onLeft };
     this.highlight = 0;
+    this.soakRate = 0.1; // köpüğün lekeyi çözme hızı (Premium Şampuan ile artar)
   }
 
   /**
@@ -115,7 +116,7 @@ export class CarManager {
     materials.forEach((m) => applyDirtShader(m, volume.uniforms, { tuneParts: !!def.tune }));
     const samples = sampleReachable(surface);
     volume.setSurfaceSamples(samples.positions, samples.parts);
-    const req = (id) => (pkg.layers.includes(id) ? 1 : 0);
+    const req = (id) => (pkg.steps.includes(id) ? 1 : 0);
     volume.uniforms.uReq.value.set(req('rims'), req('tires'), req('glass'), req('polish'));
 
     root.position.z = ENTRY_Z;
@@ -131,7 +132,9 @@ export class CarManager {
       materials,
       wheels,
       bounds,
+      surface,
       package: pkg,
+      latch: {},
       customer: CUSTOMERS[(Math.random() * CUSTOMERS.length) | 0],
       state: 'compiling',
       t: 0,
@@ -187,7 +190,7 @@ export class CarManager {
         break;
       }
       case 'washing':
-        volume.decay(dt, { wet: 0.008, foam: 0.006 });
+        volume.soak(dt, this.soakRate);
         break;
       case 'celebrate': {
         // Işıltı bandı aracın üzerinden süpürülür
@@ -260,6 +263,17 @@ export class CarManager {
     return true;
   }
 
+  /**
+   * Havlu gibi yüzeye serilen nesneler için hızlı ışın testi (dünya koordinatı).
+   * Dönüş: çarpma uzaklığı ya da maxT
+   */
+  surfaceRay(origin, dir, maxT) {
+    const car = this.car;
+    if (!car) return maxT;
+    const p = car.root.position;
+    return firstHit(car.surface, origin.x - p.x, origin.y - p.y, origin.z - p.z, dir.x, dir.y, dir.z, maxT);
+  }
+
   /** Oyuncu çarpışması için dünya uzayındaki kutu */
   worldBox(out) {
     if (!this.car) return null;
@@ -267,7 +281,7 @@ export class CarManager {
   }
 
   cleanAll() {
-    this.car?.volume.cleanAll(this.car.package.layers.includes('polish'));
+    this.car?.volume.cleanAll(this.car.package.steps.includes('polish'));
   }
 
   disposeCar() {
@@ -293,6 +307,8 @@ function collectTriangles(meshes) {
   const parts = [];
   let total = 0;
   for (const mesh of meshes) {
+    // İç aksam: ne örneklenir ne de havlu ona değer
+    if (mesh.geometry.attributes.aPart?.getX(0) === PART.INTERIOR) continue;
     const pos = mesh.geometry.attributes.position;
     const partAttr = mesh.geometry.attributes.aPart;
     const index = mesh.geometry.index;

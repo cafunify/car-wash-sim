@@ -1,3 +1,5 @@
+import { LofiMusic } from './Music.js';
+
 /**
  * Prosedürel, ASMR tadında yumuşak sesler (ses dosyası yok).
  *
@@ -14,7 +16,6 @@ const LOOP_DEFS = {
   water: { noise: 'pink', filters: [['highpass', 380], ['bandpass', 1500, 0.35], ['lowpass', 4800]], max: 0.13, wobble: 0.18 },
   splash: { noise: 'brown', filters: [['lowpass', 900, 0.7]], max: 0.3, wobble: 0.35 },
   foam: { noise: 'pink', filters: [['highpass', 2800], ['lowpass', 8500]], max: 0.035, wobble: 0.3 },
-  sponge: { noise: 'brown', filters: [['bandpass', 380, 1.1], ['lowpass', 1200]], max: 0.32 },
   towel: { noise: 'pink', filters: [['bandpass', 1700, 0.6], ['lowpass', 3800]], max: 0.075 },
   brush: { noise: 'white', filters: [['bandpass', 4200, 0.9], ['lowpass', 7500]], max: 0.028 },
   pad: { noise: 'brown', filters: [['bandpass', 600, 1.5]], max: 0.22 },
@@ -29,6 +30,7 @@ export class AudioManager {
     this.loops = {};
     this.bubbleRate = 0;
     this.dripRate = 0;
+    this.musicOn = true;
   }
 
   init() {
@@ -62,6 +64,16 @@ export class AudioManager {
     // Oda tonu: çok hafif, derin bir uğultu (sessizlik "ölü" gelmesin)
     const amb = this.makeLoop({ noise: 'brown', filters: [['lowpass', 180]], max: 1 });
     amb.gain.gain.value = 0.035;
+
+    this.music = new LofiMusic(ctx, this.master);
+    this.music.setEnabled(this.musicOn);
+  }
+
+  /** Fon müziğini aç/kapat */
+  setMusic(on) {
+    this.musicOn = on;
+    this.music?.setEnabled(on);
+    return on;
   }
 
   makeNoise(type) {

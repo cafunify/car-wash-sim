@@ -4,14 +4,11 @@ import { TOOL_DEFS, buildToolModel } from './Tools.js';
 
 /** Raf yerleşimi (rafın yerel uzayında; +Z oyuncuya bakar) */
 const SLOTS = {
-  hose: { x: -0.95, y: 1.72, rot: [0, Math.PI / 2, 0], scale: 1.1 },
-  foam: { x: -0.3, y: 1.72, rot: [0, Math.PI / 2, 0], scale: 1.1 },
-  glass: { x: 0.22, y: 1.5, rot: [0, 0, 0], scale: 1.5 },
-  polish: { x: 0.9, y: 1.48, rot: [0, 0.4, 0], scale: 1.4 },
-  sponge: { x: -1.05, y: 0.935, rot: [0, 0.3, 0], scale: 1.5 },
-  towel: { x: -0.42, y: 0.935, rot: [0, -0.2, 0], scale: 1.4 },
-  rim: { x: 0.22, y: 0.935, rot: [0, 0.5, 0], scale: 1.4 },
-  tire: { x: 0.85, y: 0.935, rot: [0, 0, 0], scale: 1.6 },
+  glass: { x: -0.75, y: 1.5, rot: [0, 0, 0], scale: 1.5 },
+  polish: { x: 0.55, y: 1.48, rot: [0, 0.4, 0], scale: 1.4 },
+  towel: { x: -1.0, y: 0.935, rot: [0, -0.2, 0], scale: 1.4 },
+  rim: { x: 0.0, y: 0.935, rot: [0, 0.5, 0], scale: 1.4 },
+  tire: { x: 0.95, y: 0.935, rot: [0, 0, 0], scale: 1.6 },
 };
 
 const INTERACT_DIST = 3.2;
@@ -163,6 +160,7 @@ export class ToolRack {
   buildSlots() {
     TOOL_DEFS.forEach((def, index) => {
       const s = SLOTS[def.id];
+      if (!s) return; // beldeki tabancalar rafta durmaz
       const slot = new THREE.Group();
       slot.position.set(s.x, s.y, 0.06);
       const model = buildToolModel(def.id);
@@ -233,6 +231,7 @@ export class ToolRack {
   refresh() {
     for (const def of TOOL_DEFS) {
       const slot = this.slots[def.id];
+      if (!slot) continue;
       const locked = this.tools.isLocked(slot.index);
       const held = this.tools.index === slot.index;
       slot.model.visible = !held;
@@ -251,6 +250,20 @@ export class ToolRack {
         slot.label.material.needsUpdate = true;
         slot.lastKey = key;
       }
+    }
+  }
+
+  /** Sıradaki adımın aletini rafta parlat (null: hiçbiri) */
+  setHighlight(id) {
+    this.highlightId = id;
+  }
+
+  update(time) {
+    const pulse = 1 + 0.9 * (0.5 + 0.5 * Math.sin(time * 5));
+    for (const [id, slot] of Object.entries(this.slots)) {
+      const on = id === this.highlightId && slot.model.visible;
+      slot.label.material.color.setScalar(on ? pulse : 1);
+      slot.label.scale.setScalar(on ? 1.08 : 1);
     }
   }
 

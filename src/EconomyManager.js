@@ -12,9 +12,8 @@ export const SHOP_LEVEL_NAMES = ['Basit Garaj', 'Yenilenmiş Garaj', 'Neon Detai
 const TABLE = {
   hoseRadius: [0.26, 0.34, 0.44, 0.56],
   hosePower: [1, 1.3, 1.65, 2.1],
-  spongeSpeed: [1, 1.5, 2.1],
-  spongeRadius: [0.26, 0.32, 0.38],
-  spongeMult: [1, 1.2, 1.4],
+  shampoo: [1, 1.5, 2.1], // köpüğün leke çözme gücü
+  shampooMult: [1, 1.2, 1.4], // kazanç çarpanı
   towelSpeed: [1, 1.6, 2.3],
   towelRadius: [0.28, 0.34, 0.4],
   shopBonus: [0, 0.1, 0.2],
@@ -30,20 +29,22 @@ export const UPGRADES = [
     effect: (l) => `Yarıçap ${Math.round(TABLE.hoseRadius[l] * 100)} cm · Güç ×${TABLE.hosePower[l]}`,
   },
   {
-    id: 'foam',
-    name: 'Köpük Topu',
-    icon: '🫧',
-    desc: 'Aracı aktif köpükle kapla. Köpüklü yüzeyde sünger 3 kat hızlı temizler.',
-    costs: [90],
-    effect: (l) => (l ? 'Rafta seni bekliyor' : 'Kilitli'),
+    // Kayıt uyumluluğu için kimlik 'sponge' olarak kaldı
+    id: 'sponge',
+    name: 'Premium Şampuan',
+    icon: '🧴',
+    desc: 'Köpük lekeleri daha hızlı çözer, durulama daha etkili olur. Mutlu müşteri daha çok öder.',
+    costs: [200, 500],
+    effect: (l) => `Köpük gücü ×${TABLE.shampoo[l]} · Kazanç ×${TABLE.shampooMult[l]}`,
   },
   {
-    id: 'sponge',
-    name: 'Premium Sünger',
-    icon: '🧽',
-    desc: 'Daha hızlı leke temizliği. Mutlu müşteri daha çok öder.',
-    costs: [200, 500],
-    effect: (l) => `Hız ×${TABLE.spongeSpeed[l]} · Kazanç ×${TABLE.spongeMult[l]}`,
+    id: 'pinkfoam',
+    name: 'Pembe Nano Köpük',
+    icon: '🌸',
+    desc: 'Kozmetik: köpük tabancası pembe, yoğun nano köpük sıkar. Satın aldıktan sonra açıp kapatabilirsin.',
+    costs: [350],
+    cosmetic: true,
+    effect: (l) => (l ? 'Satın alındı' : 'Kozmetik'),
   },
   {
     id: 'towel',
@@ -59,7 +60,7 @@ export const UPGRADES = [
     icon: '🛞',
     desc: 'Demir tozu çözücü + yumuşak fırça. Jantlardaki fren tozunu söker (tozla temas edince morarır).',
     costs: [150],
-    effect: (l) => (l ? 'Rafta' : 'Detaylı Yıkama için gerekli'),
+    effect: (l) => (l ? 'Rafta' : 'Premium Temizlik için gerekli'),
   },
   {
     id: 'tireshine',
@@ -83,7 +84,7 @@ export const UPGRADES = [
     icon: '✨',
     desc: 'Orbital makineyle temiz boyaya cila: ayna gibi parlaklık ve metalik pul ışıltısı.',
     costs: [450],
-    effect: (l) => (l ? 'Rafta' : 'Premium Detailing için gerekli'),
+    effect: (l) => (l ? 'Rafta' : 'Premium Temizlik için gerekli'),
   },
   {
     id: 'shop',
@@ -109,6 +110,14 @@ export class EconomyManager {
     this.itemsEl.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-buy]');
       if (btn) this.buy(btn.dataset.buy);
+      const tog = e.target.closest('button[data-toggle]');
+      if (tog) {
+        const k = tog.dataset.toggle;
+        this.setSetting(k, !this.state.settings[k]);
+        this.audio.click();
+        this.renderShop();
+        this.onUpgrade?.(k, this.level(k));
+      }
     });
     this.hud.setMoney(this.state.money, false);
     this.hud.setWashed(this.state.washed);
@@ -118,7 +127,8 @@ export class EconomyManager {
   defaultState() {
     return {
       money: START_MONEY, washed: 0, totalEarned: 0,
-      levels: { nozzle: 0, foam: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, shop: 0 },
+      levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, pinkfoam: 0, shop: 0 },
+      settings: { pinkfoam: true, music: true },
     };
   }
 
@@ -128,7 +138,7 @@ export class EconomyManager {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return def;
       const s = JSON.parse(raw);
-      return { ...def, ...s, levels: { ...def.levels, ...(s.levels || {}) } };
+      return { ...def, ...s, levels: { ...def.levels, ...(s.levels || {}) }, settings: { ...def.settings, ...(s.settings || {}) } };
     } catch {
       return def;
     }
@@ -158,11 +168,15 @@ export class EconomyManager {
 
   get hoseRadius() { return TABLE.hoseRadius[this.level('nozzle')]; }
   get hosePower() { return TABLE.hosePower[this.level('nozzle')]; }
-  get spongeSpeed() { return TABLE.spongeSpeed[this.level('sponge')]; }
-  get spongeRadius() { return TABLE.spongeRadius[this.level('sponge')]; }
+  get shampoo() { return TABLE.shampoo[this.level('sponge')]; }
   get towelSpeed() { return TABLE.towelSpeed[this.level('towel')]; }
   get towelRadius() { return TABLE.towelRadius[this.level('towel')]; }
-  get foamUnlocked() { return this.level('foam') > 0; }
+  get pinkFoam() { return this.level('pinkfoam') > 0 && this.state.settings.pinkfoam; }
+
+  setSetting(key, value) {
+    this.state.settings[key] = value;
+    this.save();
+  }
   get shopLevel() { return this.level('shop'); }
 
   owns = (key) => this.level(key) > 0;
@@ -185,7 +199,7 @@ export class EconomyManager {
   }
 
   get multiplier() {
-    return TABLE.spongeMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]);
+    return TABLE.shampooMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]);
   }
 
   estimatePay(base) {
@@ -268,9 +282,11 @@ export class EconomyManager {
           <div class="effect">Şu an: ${u.effect(lvl)}</div>
           ${next}
           ${pips}
-          <button data-buy="${u.id}" ${maxed || this.state.money < cost ? 'disabled' : ''}>
+          ${u.cosmetic && maxed
+            ? `<button data-toggle="${u.id}" class="toggle ${this.state.settings[u.id] ? 'on' : ''}">${this.state.settings[u.id] ? 'Kullanılıyor ✓ — kapat' : 'Kapalı — kullan'}</button>`
+            : `<button data-buy="${u.id}" ${maxed || this.state.money < cost ? 'disabled' : ''}>
             ${maxed ? 'Maksimum ✓' : `$${cost.toLocaleString('tr-TR')} — ${lvl ? 'Yükselt' : 'Satın al'}`}
-          </button>
+          </button>`}
         </div>`;
     }).join('');
   }

@@ -4,10 +4,11 @@ import * as THREE from 'three';
  * Araç parçalarını sınıflandırır ve her köşeye `aPart` niteliği yazar.
  * Kir shader'ı ve ilerleme hesabı hangi katmanın nerede geçerli olduğunu buradan bilir.
  */
-export const PART = { PAINT: 0, GLASS: 1, TIRE: 2, RIM: 3, TRIM: 4 };
+export const PART = { PAINT: 0, GLASS: 1, TIRE: 2, RIM: 3, TRIM: 4, INTERIOR: 5 };
 
 const RX = {
-  steering: /steering|direksiyon/i,
+  // İç aksam: kir uygulanmaz (camdan bakınca kirli görünmesin)
+  interior: /interior|seat|steering|dashboard|\bdash|koltuk|direksiyon|gauge|pedal|carpet/i,
   glass: /glass|window|windshield|windscreen|cam\b|screen/i,
   tire: /tire|tyre|rubber|lastik/i,
   rim: /\brim|hub|disc|jant|alloy/i,
@@ -80,7 +81,7 @@ export function classifyCarParts(root, { atlas } = {}) {
     const n = namesOf(m);
     const mat = m.material;
     let part = null;
-    if (RX.steering.test(n)) part = PART.TRIM;
+    if (RX.interior.test(n)) part = PART.INTERIOR;
     // Tekerlek mesh'i lastik+jant içerebilir: köşe bazında dokudan ayrılır
     else if (RX.wheel.test(n) || m.userData.isWheel) part = 'wheel';
     else if (RX.glass.test(n) || mat.transparent && mat.opacity < 0.95 || mat.transmission > 0) part = PART.GLASS;

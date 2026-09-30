@@ -1,4 +1,4 @@
-import { LAYERS } from './Packages.js';
+import { STEPS } from './Packages.js';
 
 /**
  * DOM tabanlı HUD: temizlik barı, elindeki alet, müşteri, para, bildirimler.
@@ -12,6 +12,7 @@ export class HUD {
     this.progressFill = this.$('progress-fill');
     this.layersEl = this.$('layers');
     this.layerEls = {};
+    this.stepHintEl = this.$('step-hint');
     this.crosshair = this.$('crosshair');
     this.heldEl = this.$('held-tool');
     this.promptEl = this.$('prompt');
@@ -31,12 +32,12 @@ export class HUD {
   }
 
   // ---------------------------------------------------------------- aletler
-  /** def: elindeki alet (TOOL_DEFS öğesi) ya da null */
+  /** def: elindeki alet (TOOL_DEFS öğesi) */
   setHeldTool(def) {
-    this.heldEl.innerHTML = def
-      ? `<span class="icon">${def.icon}</span><span><b>${def.name}</b><small>Sol tık: kullan · Q: rafa bırak</small></span>`
-      : `<span class="icon empty">✋</span><span><b>Elin boş</b><small>Aracın yanındaki raftan bir alet al (E)</small></span>`;
-    this.heldEl.classList.toggle('empty', !def);
+    const sub = def.holster
+      ? `Sol tık: kullan · <kbd>1</kbd> Su <kbd>2</kbd> Köpük`
+      : 'Sol tık: kullan · <kbd>Q</kbd> rafa bırak';
+    this.heldEl.innerHTML = `<span class="icon">${def.icon}</span><span><b>${def.name}</b><small>${sub}</small></span>`;
   }
 
   /** Nişangâhın altında etkileşim ipucu; null gizler */
@@ -71,28 +72,36 @@ export class HUD {
   }
 
   // ---------------------------------------------------------------- ilerleme
-  /** Paketin katmanlarına göre temizlik göstergelerini kur */
+  /** Paketin adımlarını sıralı görev listesi olarak kur */
   setPackage(pkg) {
-    this.layersEl.innerHTML = pkg.layers
-      .map((id) => `<div class="layer" data-layer="${id}"><i style="background:${LAYERS[id].color}"></i><span>${LAYERS[id].label}</span><b>0%</b></div>`)
-      .join('');
+    this.layersEl.innerHTML = pkg.steps
+      .map((id, i) => `<div class="step" data-step="${id}" style="--c:${STEPS[id].color}"><i>${i + 1}</i><span>${STEPS[id].label}</span><b>0%</b></div>`)
+      .join('<em>➔</em>');
     this.layerEls = {};
-    for (const el of this.layersEl.children) this.layerEls[el.dataset.layer] = el;
-    this.layersEl.classList.toggle('many', pkg.layers.length > 4);
+    for (const el of this.layersEl.querySelectorAll('.step')) this.layerEls[el.dataset.step] = el;
+    this.setStepHint('');
   }
 
-  /** layers: { katman: 0..1 } (eşiğe göre normalize) */
-  setProgress(total, layers, complete) {
+  /** steps: { adım: 0..1 }, current: sıradaki adım */
+  setProgress(total, steps, current, complete) {
     const pct = Math.floor(total * 100);
     this.progressPct.textContent = `${pct}%`;
     this.progressFill.style.width = `${total * 100}%`;
     this.progressFill.style.backgroundPosition = `${-(1 - total) * 300}px 0`;
     this.progressPanel.classList.toggle('complete', !!complete);
     for (const [k, el] of Object.entries(this.layerEls)) {
-      const v = layers ? layers[k] ?? 0 : 0;
-      el.querySelector('b').textContent = `${Math.floor(v * 100)}%`;
+      const v = steps ? steps[k] ?? 0 : 0;
+      el.querySelector('b').textContent = v >= 1 ? '✓' : `${Math.floor(v * 100)}%`;
       el.classList.toggle('done', v >= 1);
+      el.classList.toggle('current', k === current);
     }
+    if (complete) this.setStepHint('Tertemiz! Müşteri aracını teslim alıyor ✨');
+  }
+
+  setStepHint(html) {
+    if (html === this.lastStepHint) return;
+    this.lastStepHint = html;
+    this.stepHintEl.innerHTML = html ? `<span class="arrow">▶</span> ${html}` : '';
   }
 
   // ---------------------------------------------------------------- müşteri

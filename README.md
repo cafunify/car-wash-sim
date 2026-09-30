@@ -22,38 +22,34 @@ Tarayıcıda `http://localhost:5173` adresini aç. Fare kilidi (Pointer Lock) de
 | Tuş | İşlev |
 | --- | --- |
 | WASD / oklar | Hareket (Shift: koş) |
+| C (basılı) | Çömel — etekler, alt kısım ve lastikler için |
 | Fare | Etrafa bak |
 | Sol tık (basılı) | Elindeki aleti kullan |
+| 1 / 2 | Beldeki su / köpük tabancası |
 | E | Rafa bakarken: alet al / bırak · ekrana bakarken: mağaza |
-| Q | Elindekini rafa bırak |
+| Q | Raf aletini bırak, tabancaya dön |
 | Tab | Mağaza |
 | F | Kir tarayıcı (kalan kir turuncu, cila gereken boya sarı, ıslaklık mavi) |
-| M | Ses aç/kapat |
+| M / N | Tüm sesler / fon müziği |
 
 ## Oynanış
 
-**Aletler** aracın sağındaki rafta asılı durur; bakıp E ile alınır. Kilitli olanlar mağazadan açılır.
+Oyuncu **su ve köpük tabancası belinde** başlar. Diğer aletler aracın sağındaki rafta durur; bakıp E ile alınır, sıradaki adımın aleti rafta parlar.
 
-| Alet | Ne yapar |
-| --- | --- |
-| Basınçlı yıkama tabancası | Çamuru söker, köpüğü durular, aracı ıslatır |
-| Köpük tabancası | Aktif köpük; köpüklü yüzeyde sünger 3 kat hızlı |
-| Yıkama süngeri | Leke ve toz filmini siler (ovalamak hızlandırır) |
-| Kurulama havlusu | Islaklığı ve damlaları alır |
-| Jant temizleyici | Fren tozunu söker (tozla temas edince morarır) |
-| Lastik parlatıcı | Soluk lastikleri derin siyaha çevirir |
-| Cam temizleyici | Camdaki puslu filmi ve kireç lekelerini siler |
-| Cila makinesi | Temiz, kuru boyaya cila: ayna parlaklığı ve metalik pul ışıltısı |
+**Yıkama paketleri** sıralı adımlardan oluşur; panel her zaman sıradaki adımı ve gereken aleti gösterir:
 
-**Yıkama paketleri** — ekipmanlar açıldıkça müşteriler daha kapsamlı paket ister:
-
-| Paket | Katmanlar | Kazanç |
+| Paket | Adımlar | Kazanç |
 | --- | --- | --- |
-| Standart Yıkama | çamur, leke, kuruluk | ×1 |
-| Detaylı Yıkama | + jant, lastik, cam | ×1.7 |
-| Premium Detailing | + cila | ×2.6 |
+| Standart Temizlik | Su ➔ Köpük ➔ Su (durulama) — kurulama gerekmez | ×1 |
+| Detaylı Yıkama | Su ➔ Köpük ➔ Su ➔ Cam ➔ Kurulama ➔ Lastik | ×1.7 |
+| Premium Temizlik | Su ➔ Köpük ➔ Su ➔ Cam ➔ Kurulama ➔ Jant ➔ Lastik ➔ Cila | ×2.6 |
 
-Paket bitirilince ödeme alınır; bahşiş süresi dolmadan bitirirsen %35'e kadar bahşiş eklenir. İlerleme `localStorage`'a kaydedilir (mağazada "İlerlemeyi sıfırla").
+- **Su** çamuru söker. **Köpük** yüzeyde kaldıkça lekeleri çözer ve kendiliğinden kaybolmaz; su ile durulanınca çözdüğü lekeyi de götürür.
+- Durulamadan sonraki **su lekeleri** kendiliğinden kurumaz; havlu araca serilir ve kaportanın kıvrımlarını takip eder.
+- **Jant temizleyici** (tozla temas edince morarır), **lastik parlatıcı**, **cam temizleyici** ve **cila makinesi** mağazadan açılır ve üst paketleri getirir.
+- **Premium Şampuan** köpüğün gücünü ve kazancı artırır. **Pembe Nano Köpük** kozmetik bir seçenektir (mağazadan açılıp kapatılır).
+- Bahşiş süresi dolmadan bitirirsen %35'e kadar bahşiş eklenir. İlerleme `localStorage`'a kaydedilir.
+- Arka planda prosedürel, kısık sesli bir lo-fi müzik döner (N ile kapatılır).
 
 ## Mimari
 
@@ -64,14 +60,16 @@ src/
   CarParts.js       Parça sınıflandırması (boya/cam/lastik/jant/trim) → köşe başına `aPart`
   CarManager.js     Araç yaşam döngüsü, arka plan yükleme, asenkron shader derleme, yüzey örnekleme
   CarModels.js      Araç kataloğu, GLB hazırlama/yönlendirme, rastgele metalik boya, prosedürel yedek
-  Packages.js       Yıkama paketleri, katman eşikleri, ilerleme hesabı
-  Tools.js          8 aletin davranışı ve birinci şahıs modelleri
+  Packages.js       Yıkama paketleri, sıralı adımlar, ilerleme hesabı
+  Tools.js          Aletlerin davranışı ve birinci şahıs modelleri
+  Towel.js          Araç yüzeyine serilen, kıvrımlara uyan kurulama havlusu
   ToolRack.js       Alet rafı, etiketler, mağaza terminali
-  Particles.js      Su, köpük, sis, damla ve ışıltı partikülleri
+  Particles.js      Hacimli su/köpük huzmesi, sıçrama, sis, damla ve ışıltı partikülleri
   Environment.js    3 seviyeli prosedürel garaj (Basit → Yenilenmiş → Neon stüdyo)
   EconomyManager.js Para, yükseltmeler, müşteri zamanlayıcı, kayıt, mağaza arayüzü
   HUD.js            DOM tabanlı arayüz
   Audio.js          Prosedürel ASMR sesler (pembe/kahverengi gürültü, kabarcık patlamaları, kompresör)
+  Music.js          Prosedürel lo-fi fon müziği (Rhodes akorları, bas, fırça davul, plak cızırtısı)
 ```
 
 ### Kir sistemi
@@ -83,7 +81,7 @@ Kir, UV'ye boyanan bir doku yerine **araç-yerel 3D voxel hacminde** tutulur (ik
 
 Bunun nedeni birçok GLB modelinin paylaşılan doku atlası UV'si kullanmasıdır: UV'ye boyamak aynı UV'yi paylaşan tüm
 yüzeyleri birden temizlerdi. Hangi katmanın nerede geçerli olduğunu `CarParts.js`'in her köşeye yazdığı parça etiketi
-belirler (isim, malzeme, saydamlık ve tekerleklerde doku parlaklığına göre).
+belirler (isim, malzeme, saydamlık ve tekerleklerde doku parlaklığına göre). İç aksam (koltuk, torpido, direksiyon) kirlenmez.
 
 - Aracın mevcut PBR malzemesine `onBeforeCompile` ile katmanlar eklenir; temiz hal orijinal malzemedir.
 - Raycaster isabet noktası araç-yerel uzaya çevrilir ve yumuşak küresel fırçayla hacim boyanır.
@@ -100,10 +98,10 @@ npx @gltf-transform/cli optimize girdi.glb public/models/cars/dz/cikti.glb --tex
 
 ### Debug
 
-Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `nextCar('premium')`, `setLevel(2)`, `stats()`.
+Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `nextCar('premium')`, `setLevel(2)`, `stats()`, `play()`, `fire()`, `teleport(x, z, bakX, bakY, bakZ)`.
 
 ## Varlıklar ve lisans
 
 - Araç modelleri: **Daniel Zhabotinsky** — [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/), ayrıntılı künye:
   [`public/models/cars/dz/CREDITS.md`](public/models/cars/dz/CREDITS.md). Dokular web için küçültüldü, boya rengi oyunda değiştiriliyor.
-- Diğer tüm görseller (garaj, dokular, tabelalar, aletler) ve sesler kodda prosedürel olarak üretilir.
+- Diğer tüm görseller (garaj, dokular, tabelalar, aletler), sesler ve müzik kodda prosedürel olarak üretilir.

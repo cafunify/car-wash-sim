@@ -1,49 +1,52 @@
 /**
- * Yıkama paketleri ve temizlik katmanları.
- * Müşteri bir paket ister; paketin katmanlarının hepsi tamamlanınca araç biter.
+ * Yıkama paketleri ve adım adım görev ilerleyişi.
+ * Müşteri bir paket ister; paketin adımlarının hepsi tamamlanınca araç biter.
+ * Oyun her zaman sıradaki (ilk tamamlanmamış) adıma yönlendirir.
  */
 
-/** Katman tanımları: HUD etiketi, rengi, tamamlanma eşiği (temiz örnek oranı), ağırlığı */
-export const LAYERS = {
-  mud: { label: 'Çamur', color: '#b07a4a', threshold: 0.97, weight: 1 },
-  stain: { label: 'Leke', color: '#d6c56d', threshold: 0.96, weight: 1 },
-  dry: { label: 'Kuruluk', color: '#6fc3ff', threshold: 0.95, weight: 0.5 },
-  rims: { label: 'Jant', color: '#a9b3c1', threshold: 0.94, weight: 0.6 },
-  tires: { label: 'Lastik', color: '#7b8391', threshold: 0.94, weight: 0.6 },
-  glass: { label: 'Cam', color: '#8fe3ff', threshold: 0.94, weight: 0.6 },
-  polish: { label: 'Cila', color: '#ffd35a', threshold: 0.9, weight: 1 },
+/**
+ * Adım tanımları.
+ *   tool       — bu adımda kullanılan alet (Tools.js kimliği)
+ *   threshold  — istatistik bu orana ulaşınca adım biter (temiz örnek oranı)
+ */
+export const STEPS = {
+  mud: { label: 'Su', long: 'Su ile çamuru sök', tool: 'hose', color: '#b07a4a', threshold: 0.97 },
+  foam: { label: 'Köpük', long: 'Aracı köpükle kapla', tool: 'foam', color: '#f4f7ff', threshold: 0.85 },
+  rinse: { label: 'Durulama', long: 'Su ile köpüğü ve lekeleri durula', tool: 'hose', color: '#35d0ff', threshold: 0.96 },
+  glass: { label: 'Cam', long: 'Camları temizle', tool: 'glass', color: '#8fe3ff', threshold: 0.94 },
+  dry: { label: 'Kurulama', long: 'Havluyla su lekelerini kurula', tool: 'towel', color: '#6fc3ff', threshold: 0.95 },
+  rims: { label: 'Jant', long: 'Jantlardaki fren tozunu temizle', tool: 'rim', color: '#a9b3c1', threshold: 0.94 },
+  tires: { label: 'Lastik', long: 'Lastikleri parlat', tool: 'tire', color: '#7b8391', threshold: 0.94 },
+  polish: { label: 'Cila', long: 'Boyayı cilala', tool: 'polish', color: '#ffd35a', threshold: 0.9 },
 };
 
 export const PACKAGES = {
   standart: {
     id: 'standart',
-    name: 'Standart Yıkama',
-    short: 'Standart',
+    name: 'Standart Temizlik',
     color: '#35d0ff',
     mult: 1,
     time: 1,
-    layers: ['mud', 'stain', 'dry'],
+    steps: ['mud', 'foam', 'rinse'],
     requires: [],
   },
   detayli: {
     id: 'detayli',
     name: 'Detaylı Yıkama',
-    short: 'Detaylı',
     color: '#3ee48a',
     mult: 1.7,
-    time: 1.45,
-    layers: ['mud', 'stain', 'dry', 'rims', 'tires', 'glass'],
-    requires: ['rimcleaner', 'tireshine', 'glasscleaner'],
+    time: 1.5,
+    steps: ['mud', 'foam', 'rinse', 'glass', 'dry', 'tires'],
+    requires: ['glasscleaner', 'tireshine'],
   },
   premium: {
     id: 'premium',
-    name: 'Premium Detailing',
-    short: 'Premium',
+    name: 'Premium Temizlik',
     color: '#ffd35a',
     mult: 2.6,
-    time: 1.9,
-    layers: ['mud', 'stain', 'dry', 'rims', 'tires', 'glass', 'polish'],
-    requires: ['rimcleaner', 'tireshine', 'glasscleaner', 'polisher'],
+    time: 2,
+    steps: ['mud', 'foam', 'rinse', 'glass', 'dry', 'rims', 'tires', 'polish'],
+    requires: ['glasscleaner', 'tireshine', 'rimcleaner', 'polisher'],
   },
 };
 
@@ -52,7 +55,7 @@ export function availablePackages(owns) {
   return Object.values(PACKAGES).filter((p) => p.requires.every(owns));
 }
 
-/** Müşterinin isteyeceği paketi seç (açık olanlardan, üst paketler biraz daha nadir) */
+/** Müşterinin isteyeceği paketi seç (açık olanlardan) */
 export function pickPackage(owns) {
   const list = availablePackages(owns);
   const weights = { standart: 1, detayli: 1.1, premium: 0.9 };
@@ -66,18 +69,29 @@ export function pickPackage(owns) {
 
 /**
  * İstatistiklerden paket ilerlemesini hesapla.
- * Dönüş: { layers: {id: 0..1}, total: 0..1, done }
+ * latch: araç başına durum ({ foam: true } köpük adımı bir kez tamamlandı mı)
+ * Dönüş: { steps: {id: 0..1}, current: ilk bitmemiş adım ya da null, total: 0..1, done }
  */
-export function packageProgress(pkg, stats) {
-  const layers = {};
-  let sum = 0, wsum = 0;
-  for (const id of pkg.layers) {
-    const L = LAYERS[id];
-    const v = Math.min(1, stats[id] / L.threshold);
-    layers[id] = v;
-    sum += v * L.weight;
-    wsum += L.weight;
+export function packageProgress(pkg, stats, latch) {
+  const raw = {
+    mud: stats.mud,
+    // Köpük adımı: araç yeterince köpüklendiğinde (ya da lekeler zaten söküldüyse) kalıcı olarak biter
+    foam: latch.foam ? 1 : Math.max(stats.foamCover, stats.stain >= STEPS.rinse.threshold ? 1 : 0),
+    // Durulama: lekeler söküldü ve üzerinde köpük kalmadı
+    rinse: latch.foam || stats.stain >= STEPS.rinse.threshold ? Math.min(stats.stain, 1 - stats.foam * 20) : 0,
+    glass: stats.glass,
+    dry: stats.dry,
+    rims: stats.rims,
+    tires: stats.tires,
+    polish: stats.polish,
+  };
+  const steps = {};
+  let sum = 0;
+  for (const id of pkg.steps) {
+    steps[id] = Math.max(0, Math.min(1, raw[id] / STEPS[id].threshold));
+    sum += steps[id];
   }
-  const done = pkg.layers.every((id) => layers[id] >= 1) && stats.foam < 0.02;
-  return { layers, total: sum / wsum, done };
+  if (steps.foam >= 1) latch.foam = true;
+  const current = pkg.steps.find((id) => steps[id] < 1) || null;
+  return { steps, current, total: sum / pkg.steps.length, done: !current };
 }

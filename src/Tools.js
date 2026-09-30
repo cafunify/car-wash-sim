@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { ClothTowel } from './Towel.js';
 
 /**
  * Aletler. `unlock` mağazadaki ekipman anahtarıdır (null = başlangıçta var).
- * kind: 'spray' (uzaktan püskürtür) | 'hand' (yüzeye değip ovalar)
+ * kind: 'spray' (uzaktan püskürtür) | 'hand' (yüzeye değip ovalar) | 'cloth' (yüzeye serilir)
+ * holster: oyuncunun belinde durur (1/2 ile seçilir), rafta değildir
  */
 export const TOOL_DEFS = [
-  { id: 'hose', name: 'Basınçlı Yıkama Tabancası', short: 'Hortum', icon: '💦', range: 7, unlock: null, kind: 'spray' },
-  { id: 'foam', name: 'Köpük Tabancası', short: 'Köpük', icon: '🫧', range: 4.5, unlock: 'foam', kind: 'spray' },
-  { id: 'sponge', name: 'Yıkama Süngeri', short: 'Sünger', icon: '🧽', range: 2.4, unlock: null, kind: 'hand' },
-  { id: 'towel', name: 'Kurulama Havlusu', short: 'Havlu', icon: '🧻', range: 2.4, unlock: null, kind: 'hand' },
+  { id: 'hose', name: 'Su Tabancası', short: 'Su', icon: '💦', range: 7, unlock: null, kind: 'spray', holster: '1' },
+  { id: 'foam', name: 'Köpük Tabancası', short: 'Köpük', icon: '🫧', range: 4.5, unlock: null, kind: 'spray', holster: '2' },
+  { id: 'towel', name: 'Kurulama Havlusu', short: 'Havlu', icon: '🧻', range: 2.4, unlock: null, kind: 'cloth' },
   { id: 'rim', name: 'Jant Temizleyici', short: 'Jant', icon: '🛞', range: 2.4, unlock: 'rimcleaner', kind: 'hand' },
   { id: 'tire', name: 'Lastik Parlatıcı', short: 'Lastik', icon: '⚫', range: 2.4, unlock: 'tireshine', kind: 'hand' },
   { id: 'glass', name: 'Cam Temizleyici', short: 'Cam', icon: '🪟', range: 2.4, unlock: 'glasscleaner', kind: 'spray' },
@@ -27,15 +28,17 @@ const _q2 = new THREE.Quaternion();
 const _t1 = new THREE.Vector3();
 const _t2 = new THREE.Vector3();
 
-const LOOPS = ['water', 'splash', 'foam', 'sponge', 'towel', 'brush', 'pad', 'spray', 'polisher'];
+const LOOPS = ['water', 'splash', 'foam', 'towel', 'brush', 'pad', 'spray', 'polisher'];
+export const toolIndex = (id) => TOOL_DEFS.findIndex((d) => d.id === id);
 
 /**
  * Oyuncunun elindeki alet: davranış (kir hacmine fırça) + birinci şahıs model.
  */
 export class Tools {
-  constructor({ camera, carManager, effects, audio, economy, hud }) {
+  constructor({ camera, scene, carManager, effects, audio, economy, hud }) {
     Object.assign(this, { camera, carManager, effects, audio, economy, hud });
-    this.index = -1; // -1 = eller boş
+    this.index = 0; // oyuncu su tabancasıyla başlar
+    this.gun = 0; // son kullanılan beldeki tabanca
     this.raycaster = new THREE.Raycaster();
     this.raycaster.far = 30;
     this.switchT = 1;
@@ -56,6 +59,34 @@ export class Tools {
     });
     this.handPos = new THREE.Vector3();
     this.handQuat = new THREE.Quaternion();
+    this.cloth = new ClothTowel(scene, carManager);
+    this._right = new THREE.Vector3();
+    this.equip(0, false);
+  }
+
+  get onRack() {
+    return this.index >= 0 && !TOOL_DEFS[this.index].holster;
+  }
+
+  /** Eldeki aleti göster (animasyonlu çekme) */
+  equip(i, sound = true) {
+    this.index = i;
+    if (TOOL_DEFS[i].holster) this.gun = i;
+    this.switchT = 0;
+    this.models.forEach((m, k) => (m.visible = k === i));
+    const m = this.models[i];
+    this.handPos.copy(m.userData.rest).add(_t1.set(0, -0.4, 0));
+    this.handQuat.copy(m.userData.restQuat);
+    this.cloth.hide();
+    for (const k of LOOPS) this.audio.setLoop(k, 0);
+    if (sound) this.audio.pickup();
+    this.onChange?.(this.index);
+  }
+
+  /** Beldeki tabancayı seç (1/2). Elde raf aleti varsa rafa döner. */
+  selectGun(i) {
+    if (!TOOL_DEFS[i]?.holster || i === this.index) return;
+    this.equip(i);
   }
 
   get def() {
@@ -67,33 +98,24 @@ export class Tools {
     return !!u && this.economy.level(u) === 0;
   }
 
-  /** Raftan bir alet al (elindekini rafa bırakır) */
+  /** Raftan bir alet al (elde raf aleti varsa o rafa döner) */
   pickUp(i) {
     if (i === this.index || i < 0 || i >= TOOL_DEFS.length) return false;
+    if (TOOL_DEFS[i].holster) return this.selectGun(i), true;
     if (this.isLocked(i)) {
       this.hud.hint(`${TOOL_DEFS[i].name} kilitli — Mağaza (Tab)`);
       this.audio.error();
       return false;
     }
-    this.index = i;
-    this.switchT = 0;
-    this.models.forEach((m, k) => (m.visible = k === i));
-    const m = this.models[i];
-    this.handPos.copy(m.userData.rest).add(_t1.set(0, -0.4, 0));
-    this.handQuat.copy(m.userData.restQuat);
-    this.audio.pickup();
-    this.onChange?.(this.index);
+    this.equip(i);
     return true;
   }
 
-  /** Elindekini rafa geri koy */
+  /** Raf aletini rafa geri koy ve beldeki tabancaya dön */
   putDown() {
-    if (this.index < 0) return false;
-    this.index = -1;
-    this.models.forEach((m) => (m.visible = false));
-    for (const k of LOOPS) this.audio.setLoop(k, 0);
+    if (!this.onRack) return false;
     this.audio.putdown();
-    this.onChange?.(this.index);
+    this.equip(this.gun, false);
     return true;
   }
 
@@ -117,10 +139,7 @@ export class Tools {
 
     const loops = {};
     for (const k of LOOPS) loops[k] = 0;
-    if (!def) {
-      for (const k of LOOPS) this.audio.setLoop(k, 0);
-      return;
-    }
+    this._right.set(1, 0, 0).applyQuaternion(this.camera.quaternion);
 
     const active = firing && this.switchT > 0.6;
     const washable = this.carManager.isWashable;
@@ -143,51 +162,39 @@ export class Tools {
         if (!active) break;
         const power = this.economy.hosePower;
         aimFrom(10);
-        this.effects.sprayWater(_tip, _dir, inRange ? hit : null, power, dt);
+        this.effects.sprayWater(_tip, _dir, inRange ? hit : null, power, dt, this._right);
         this.recoil = 1;
         loops.water = 0.8;
         if (inRange && washable) {
           loops.splash = 1;
           const near = 1 - Math.min(0.55, Math.max(0, (hit.distance - 1.2) / def.range));
           const radius = this.economy.hoseRadius * (1 + hit.distance * 0.05);
-          this.carManager.paint(hit.point, radius, { mud: 1.2 * power * near, stain: 0.05 * power, wet: 1.3, foam: -1.8 * power }, dt);
+          // Durulama: köpük akarken çözdüğü lekeyi de götürür (foamBoost)
+          const res = this.carManager.paint(hit.point, radius, {
+            mud: 1.2 * power * near, stain: 0.06 * power, foamBoost: 25 * this.economy.shampoo, wet: 1.3, foam: -3.0 * power,
+          }, dt);
+          if (res && res.foam > 0.2) bubbleRate = 0.35;
         }
         break;
       }
       case 'foam': {
         if (!active) break;
         aimFrom(5);
-        this.effects.sprayFoam(_tip, _dir, inRange ? hit : null, dt);
+        this.effects.sprayFoam(_tip, _dir, inRange ? hit : null, dt, this._right);
         this.recoil = 0.5;
         loops.foam = 1;
         bubbleRate = 0.6;
         if (inRange && washable) this.carManager.paint(hit.point, 0.5, { foam: 2.4, wet: 0.35 }, dt);
         break;
       }
-      case 'sponge': {
-        if (!touching) break;
-        const res = this.carManager.paint(hit.point, this.economy.spongeRadius, {
-          stain: 1.0 * this.economy.spongeSpeed * f, mud: 0.07, wet: 0.3, foam: -0.3, foamBoost: 2,
-        }, dt);
-        this.scrubPhase += dt * (4 + scrub * 16);
-        loops.sponge = (0.35 + 0.65 * scrub) * (0.6 + 0.4 * Math.abs(Math.sin(this.scrubPhase * 0.5)));
-        if (res) {
-          this.effects.bubbles(hit.point, hit.normal, 0.5 + res.foam * 2);
-          bubbleRate = res.foam * 0.8 * (0.4 + scrub);
-          if (res.mud > 0.45) this.hintOnce('mud', 'Kalın çamur! Önce hortumla yıka');
-          else if (res.foam < 0.05 && res.stain > 0.25 && this.economy.foamUnlocked && !this.shownHints.has('foam'))
-            this.hintOnce('foam', 'İpucu: Köpük tabancası süngeri 3 kat hızlandırır');
-        }
-        break;
-      }
       case 'towel': {
         if (!touching) break;
         const res = this.carManager.paint(hit.point, this.economy.towelRadius, { wet: -2.0 * this.economy.towelSpeed * f, foam: -0.35 }, dt);
-        this.scrubPhase += dt * (4 + scrub * 16);
+        this.scrubPhase += dt * (3 + scrub * 10);
         loops.towel = 0.3 + 0.7 * scrub;
         if (res) {
-          if (res.foam > 0.3) this.hintOnce('towel-foam', 'Önce köpüğü hortumla durula');
-          else if (res.mud > 0.4) this.hintOnce('towel-mud', 'Burası hâlâ çamurlu — hortumla yıka');
+          if (res.foam > 0.3) this.hintOnce('towel-foam', 'Önce köpüğü su ile durula');
+          else if (res.mud > 0.4) this.hintOnce('towel-mud', 'Burası hâlâ çamurlu — su ile yıka');
         }
         break;
       }
@@ -208,7 +215,7 @@ export class Tools {
         const res = this.carManager.paint(hit.point, 0.22, { tire: 1.1 * f }, dt);
         this.scrubPhase += dt * (4 + scrub * 14);
         loops.pad = 0.3 + 0.7 * scrub;
-        if (res && res.mud > 0.4) this.hintOnce('tire-mud', 'Lastik çamurlu — önce hortumla yıka');
+        if (res && res.mud > 0.4) this.hintOnce('tire-mud', 'Lastik çamurlu — önce su ile yıka');
         break;
       }
       case 'glass': {
@@ -232,9 +239,9 @@ export class Tools {
       }
     }
 
-    if (firing && hit && !inRange && def.kind === 'hand') this.hintOnce('range', 'Çok uzaktasın — araca yaklaş');
+    if (firing && hit && !inRange && def.kind !== 'spray') this.hintOnce('range', 'Çok uzaktasın — araca yaklaş');
 
-    for (const k of LOOPS) this.audio.setLoop(k, loops[k], k === 'sponge' ? 0.03 : 0.1);
+    for (const k of LOOPS) this.audio.setLoop(k, loops[k], 0.1);
     this.audio.setBubbles(bubbleRate);
     this.animateView(dt, { active, hit: inRange ? hit : null, moving, time });
   }
@@ -249,6 +256,17 @@ export class Tools {
 
     const bob = moving ? Math.sin(time * 9) * 0.012 : Math.sin(time * 1.6) * 0.004;
     const bobX = moving ? Math.cos(time * 4.5) * 0.01 : 0;
+
+    // Havlu: araca değince açılıp yüzeye serilir
+    if (def.kind === 'cloth') {
+      if (active && hit && this.carManager.isWashable) {
+        this.cloth.place(hit, Math.sin(this.scrubPhase), time);
+        model.visible = false;
+        return;
+      }
+      this.cloth.hide();
+      model.visible = true;
+    }
 
     if (def.kind === 'hand' && active && hit) {
       // Yüzeyin üzerinde dairesel ovalama (cila makinesi daha küçük daireler çizer)
@@ -345,16 +363,6 @@ export function buildToolModel(id) {
       g.add(body, grip, bot, liquid, neck, bell, tip);
       g.scale.setScalar(0.85);
       return finish(g, new THREE.Vector3(0.24, -0.22, -0.42), new THREE.Euler(0.05, 0.1, 0), { tip });
-    }
-    case 'sponge': {
-      const g = new THREE.Group();
-      const a = new THREE.Mesh(new RoundedBoxGeometry(0.16, 0.06, 0.11, 4, 0.025), M.plastic(0xffd23f, 0.95));
-      a.position.y = 0.045;
-      const b = new THREE.Mesh(new RoundedBoxGeometry(0.16, 0.025, 0.11, 3, 0.01), M.plastic(0x2aa3ff, 1));
-      b.position.y = 0.01;
-      const tip = new THREE.Object3D();
-      g.add(a, b, tip);
-      return finish(g, ...HAND_REST, { tip, thickness: 0.004 });
     }
     case 'towel': {
       const g = new THREE.Group();

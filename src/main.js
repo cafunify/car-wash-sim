@@ -9,14 +9,15 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Environment, WALK_BOUNDS } from './Environment.js';
 import { CarManager } from './CarManager.js';
 import { Effects } from './Particles.js';
-import { Tools, TOOL_DEFS } from './Tools.js';
+import { Tools, TOOL_DEFS, toolIndex } from './Tools.js';
 import { EconomyManager, SHOP_LEVEL_NAMES } from './EconomyManager.js';
 import { HUD } from './HUD.js';
 import { AudioManager } from './Audio.js';
 import { ToolRack } from './ToolRack.js';
-import { PACKAGES, LAYERS, pickPackage, packageProgress } from './Packages.js';
+import { PACKAGES, STEPS, pickPackage, packageProgress } from './Packages.js';
 
 const EYE_HEIGHT = 1.68;
+const CROUCH_HEIGHT = 1.02;
 const WALK_SPEED = 3.3;
 const RUN_SPEED = 5.6;
 const PLAYER_RADIUS = 0.32;
@@ -37,6 +38,7 @@ class Game {
     this.waitTimer = 0;
     this.lastStats = null;
     this.started = false;
+    this.eye = EYE_HEIGHT;
   }
 
   async init() {
@@ -86,6 +88,7 @@ class Game {
     });
     this.tools = new Tools({
       camera,
+      scene,
       carManager: this.cars,
       effects: this.effects,
       audio: this.audio,
@@ -94,17 +97,19 @@ class Game {
     });
     this.rack = new ToolRack(scene, { tools: this.tools, economy: this.economy });
     this.tools.onChange = (i) => {
-      this.hud.setHeldTool(TOOL_DEFS[i] || null);
+      this.hud.setHeldTool(TOOL_DEFS[i]);
       this.rack.refresh();
     };
-    this.hud.setHeldTool(null);
+    this.hud.setHeldTool(TOOL_DEFS[this.tools.index]);
+    this.audio.musicOn = this.economy.state.settings.music;
+    this.applyCosmetics();
     this.knownPackages = new Set(this.economy.packages.map((p) => p.id));
 
     this.applyLevel(this.economy.shopLevel);
     await this.cars.preload(this.economy.shopLevel);
     this.spawnCar();
     await this.cars.car.ready;
-    this.hud.message('Müşteri geliyor…<br><small>Aletler sağdaki rafta — bak ve E ile al</small>', 3.5);
+    this.hud.message('Müşteri geliyor…<br><small>Su ve köpük tabancası belinde (1/2) · diğer aletler sağdaki rafta</small>', 4);
 
     this.bindInput();
     document.getElementById('loading').classList.add('hidden');
@@ -116,16 +121,26 @@ class Game {
   spawnCar() {
     const pkg = pickPackage(this.economy.owns);
     this.cars.spawn(this.economy.shopLevel, pkg);
+    this.applyCosmetics();
     this.hud.setPackage(pkg);
-    this.hud.setProgress(0, null, false);
+    this.hud.setProgress(0, null, pkg.steps[0], false);
     this.hints = new Set();
+  }
+
+  /** Pembe nano köpük ve şampuan gücü: aktif araca ve efektlere uygula */
+  applyCosmetics() {
+    const pink = this.economy.pinkFoam;
+    const rgb = pink ? [1.0, 0.55, 0.82] : [0.97, 0.98, 1.0];
+    this.effects.setFoamColor(rgb);
+    this.cars.car?.volume.uniforms.uFoamColor.value.setRGB(...(pink ? [1.0, 0.58, 0.84] : [0.94, 0.96, 1.0]));
+    this.cars.soakRate = 0.04 * this.economy.shampoo;
   }
 
   onCarArrived(car) {
     this.economy.startCustomer(car);
     this.audio.carArrive();
-    const extra = car.package.id === 'standart' ? 'Önce hortumla çamuru sök' : `${car.package.name} istiyor: jant, lastik ve cam da dahil${car.package.id === 'premium' ? ' + cila' : ''}`;
-    this.hud.message(`<b>${car.customer}</b> ${car.def.name} ile geldi!<br><small>${extra}</small>`, 3.5);
+    const steps = car.package.steps.map((id) => STEPS[id].label).join(' ➔ ');
+    this.hud.message(`<b>${car.customer}</b> ${car.def.name} ile geldi!<br><small>${car.package.name}: ${steps}</small>`, 4.5);
   }
 
   onCarWashed() {
@@ -136,13 +151,16 @@ class Game {
     const box = this.cars.worldBox(new THREE.Box3());
     if (box) this.effects.sparkleBurst(box);
     if (res) this.hud.toast(`+$${res.total}`, `${car.package.name}${res.tip > 0 ? ` · bahşiş +$${res.tip} ⏱` : ` · ${car.customer} memnun!`}`);
-    this.hud.setProgress(1, Object.fromEntries(car.package.layers.map((l) => [l, 1])), true);
+    this.hud.setProgress(1, Object.fromEntries(car.package.steps.map((l) => [l, 1])), null, true);
+    this.rack.setHighlight(null);
   }
 
   onUpgrade(id, level) {
     if (id === 'shop' || id === 'reset') this.applyLevel(this.economy.shopLevel);
-    if (id === 'reset' && this.tools.index >= 0 && this.tools.isLocked(this.tools.index)) this.tools.putDown();
+    if (id === 'reset' && this.tools.onRack && this.tools.isLocked(this.tools.index)) this.tools.putDown();
     this.rack.refresh();
+    this.applyCosmetics();
+    if (id === 'pinkfoam' && level) this.hud.toast(this.economy.pinkFoam ? 'Pembe Nano Köpük 🌸' : 'Klasik köpük', this.economy.pinkFoam ? 'Köpük tabancan artık pembe' : '', 'info');
     const tool = TOOL_DEFS.find((t) => t.unlock === id);
     if (tool) this.hud.toast(`${tool.name}`, 'Raftaki yerini aldı', 'info');
     if (id === 'shop') this.hud.toast(`${SHOP_LEVEL_NAMES[level]}`, 'Yeni araç tipleri geliyor!', 'info');
@@ -236,7 +254,17 @@ class Game {
       if (!this.active) return;
       this.keys.add(e.code);
       if (e.code === 'KeyE') this.interact();
-      if (e.code === 'KeyQ' && this.tools.putDown()) this.hud.hint('Alet rafa bırakıldı', 1.2);
+      if (e.code === 'KeyQ') {
+        if (this.tools.putDown()) this.hud.hint('Alet rafa bırakıldı', 1.2);
+        else this.hud.hint('Tabancalar belinde — 1: Su · 2: Köpük', 1.8);
+      }
+      if (e.code === 'Digit1') this.tools.selectGun(0);
+      if (e.code === 'Digit2') this.tools.selectGun(1);
+      if (e.code === 'KeyN') {
+        const on = this.audio.setMusic(!this.audio.musicOn);
+        this.economy.setSetting('music', on);
+        this.hud.hint(on ? 'Müzik açık 🎵' : 'Müzik kapalı', 1.2);
+      }
       if (e.code === 'KeyF') {
         this.cars.pulseHighlight();
         this.hud.hint('Kir tarayıcı: turuncu = kir, mavi = ıslak');
@@ -367,16 +395,13 @@ class Game {
     const def = TOOL_DEFS[h.tool];
     if (this.tools.index === h.tool) return this.hud.setPrompt(`<kbd>E</kbd> ${def.short} rafa bırak`);
     if (this.tools.isLocked(h.tool)) return this.hud.setPrompt(`<span class="locked">🔒 ${def.name} — $${this.economy.costOf(def.unlock)} · Mağaza (Tab)</span>`);
-    const swap = this.tools.index >= 0 ? ` <small>(${TOOL_DEFS[this.tools.index].short} rafa döner)</small>` : '';
+    const swap = this.tools.onRack ? ` <small>(${TOOL_DEFS[this.tools.index].short} rafa döner)</small>` : '';
     this.hud.setPrompt(`<kbd>E</kbd> ${def.name} al${swap}`);
   }
 
   interact() {
     const h = this.rackHover;
-    if (!h) {
-      if (this.tools.index < 0) this.hud.hint('Aletler aracın yanındaki rafta — rafa bakıp E\'ye bas', 2.5);
-      return;
-    }
+    if (!h) return this.hud.hint('Aletler aracın sağındaki rafta — rafa bakıp E\'ye bas', 2.5);
     if (h.shop) return this.openShop();
     if (this.tools.index === h.tool) this.tools.putDown();
     else this.tools.pickUp(h.tool);
@@ -389,7 +414,8 @@ class Game {
       (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0),
       (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0),
     );
-    const speed = k.has('ShiftLeft') || k.has('ShiftRight') ? RUN_SPEED : WALK_SPEED;
+    const crouch = k.has('KeyC');
+    const speed = crouch ? WALK_SPEED * 0.5 : k.has('ShiftLeft') || k.has('ShiftRight') ? RUN_SPEED : WALK_SPEED;
     if (input.lengthSq() > 1) input.normalize();
 
     const fwd = new THREE.Vector3();
@@ -422,7 +448,10 @@ class Game {
         else pos.z += pushes[i];
       }
     }
-    pos.y = EYE_HEIGHT;
+    // Çömelme: göz hizası yumuşakça iner (etekler, alt kısım ve lastikler için)
+    this.eye += ((crouch ? CROUCH_HEIGHT : EYE_HEIGHT) - this.eye) * (1 - Math.exp(-dt * 10));
+    pos.y = this.eye;
+    this.crouching = crouch;
     this.moving = this.velocity.lengthSq() > 0.5;
   }
 
@@ -433,27 +462,32 @@ class Game {
     this.statsTimer = 0.1;
     const s = this.cars.stats();
     if (!s) return;
-    const pkg = this.cars.car.package;
-    const { layers, total, done } = packageProgress(pkg, s);
-    this.hud.setProgress(total, layers, done);
-    this.lastStats = { ...s, layers, total };
+    const car = this.cars.car;
+    const { steps, current, total, done } = packageProgress(car.package, s, car.latch);
+    this.hud.setProgress(total, steps, current, done);
+    this.lastStats = { ...s, steps, current, total };
     this.audio.setDrips(Math.min(1, (1 - s.dry) * 1.5));
-
-    // Bağlamsal yönlendirme (her araçta bir kez)
-    const hintOnce = (key, cond, text, dur = 3) => {
-      if (cond && !this.hints.has(key)) {
-        this.hints.add(key);
-        this.hud.hint(text, dur);
-      }
-    };
-    const washed = layers.mud >= 1 && layers.stain >= 1;
-    hintOnce('nearly', !done && total > 0.93, 'Neredeyse bitti! Kalan yerleri görmek için F', 3.5);
-    hintOnce('rinse', s.foam >= 0.02 && washed, 'Köpük kaldı — hortumla durula');
-    hintOnce('dry', washed && layers.dry < 1 && s.foam < 0.02, 'Tertemiz! Şimdi havluyla kurula');
-    const details = ['rims', 'tires', 'glass'].filter((l) => l in layers && layers[l] < 1).map((l) => LAYERS[l].label.toLowerCase());
-    hintOnce('details', washed && layers.dry >= 1 && details.length, `Sırada detaylar: ${details.join(', ')}`, 3.5);
-    hintOnce('polish', 'polish' in layers && washed && layers.dry >= 1 && !details.length && layers.polish < 1, 'Son dokunuş: cila makinesiyle boyayı parlat', 3.5);
+    this.guide(current, s);
     if (done) this.onCarWashed();
+  }
+
+  /** Sıradaki adıma yönlendir: panelde ipucu, gerekli alet rafta parlar */
+  guide(current, s) {
+    if (!current) return;
+    const step = STEPS[current];
+    const tool = TOOL_DEFS.find((t) => t.id === step.tool);
+    const holding = this.tools.def?.id === tool.id;
+    let how;
+    if (holding) how = `<b>${tool.name}</b> elinde — sol tık`;
+    else if (tool.holster) how = `<kbd>${tool.holster}</kbd> ${tool.name}`;
+    else if (this.tools.isLocked(toolIndex(tool.id))) how = `🔒 ${tool.name} — Mağaza`;
+    else how = `Raftan <b>${tool.name}</b> al <kbd>E</kbd>`;
+    let extra = '';
+    if (current === 'rinse' && s.foam < 0.02 && s.stain < STEPS.rinse.threshold) extra = ' · lekeler kaldı: tekrar köpükle';
+    if (current === 'dry' && s.foam >= 0.02) extra = ' · önce köpüğü durula';
+    if ((current === 'tires' || current === 'rims') && !this.crouching) extra = ' · <kbd>C</kbd> çömel';
+    this.hud.setStepHint(`${step.long}: ${how}${extra}`);
+    this.rack.setHighlight(!tool.holster && !holding ? tool.id : null);
   }
 
   // ---------------------------------------------------------------- döngü
@@ -479,6 +513,7 @@ class Game {
     });
 
     this.updateRackHover();
+    this.rack.update(this.time);
     this.cars.update(dt, this.time);
     this.updateProgress(dt);
     this.audio.update(dt);
@@ -519,7 +554,7 @@ class Game {
       tool: (i) => this.tools.pickUp(i),
       interact: () => this.interact(),
       unlockAll: () => {
-        for (const k of ['foam', 'rimcleaner', 'tireshine', 'glasscleaner', 'polisher']) this.economy.state.levels[k] = 1;
+        for (const k of ['rimcleaner', 'tireshine', 'glasscleaner', 'polisher', 'pinkfoam']) this.economy.state.levels[k] = 1;
         this.economy.save();
         this.onUpgrade('unlock', 1);
       },
@@ -527,11 +562,12 @@ class Game {
         this.cars.disposeCar();
         const pkg = PACKAGES[pkgId] || pickPackage(this.economy.owns);
         this.cars.spawn(this.economy.shopLevel, pkg);
+        this.applyCosmetics();
         this.hud.setPackage(pkg);
         this.hints = new Set();
       },
       teleport: (x, z, lookX = 0, lookY = 1, lookZ = 0) => {
-        this.camera.position.set(x, EYE_HEIGHT, z);
+        this.camera.position.set(x, this.eye, z);
         this.camera.lookAt(lookX, lookY, lookZ);
       },
     };
