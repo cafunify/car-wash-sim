@@ -2,6 +2,8 @@
 
 Tarayıcıda çalışan birinci şahıs oto yıkama simülatörü (Three.js + Vite).
 
+**Oyna:** https://cafunify.github.io/car-wash-sim/
+
 Kirli araç gelir → hortum, köpük, sünger ve havluyla temizlersin → para kazanırsın → mağazadan ekipman ve dükkân yükseltmesi alırsın → sıradaki müşteri.
 
 ## Çalıştırma
