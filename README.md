@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Tarayıcıda `http://localhost:5173` adresini aç (fare kilidi için Chrome/Edge/Firefox'un normal bir sekmesi gerekir).
+Tarayıcıda `http://localhost:5173` adresini aç. Fare kilidi (Pointer Lock) desteklenmeyen ortamlarda (ör. gömülü önizleme panelleri) oyun otomatik olarak serbest fare moduna geçer: sağ tuşla sürükleyerek bakılır, araç imlecin gösterdiği yere nişan alır, Esc duraklatır.
 
 Üretim derlemesi: `npm run build` → `dist/`.
 

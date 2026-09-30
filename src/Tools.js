@@ -85,11 +85,11 @@ export class Tools {
   }
 
   // ---------------------------------------------------------------- güncelle
-  update(dt, { firing, mouseSpeed, moving, time }) {
+  update(dt, { firing, mouseSpeed, moving, time, aim }) {
     this.hintCooldown -= dt;
     this.switchT = Math.min(1, this.switchT + dt * 4);
 
-    this.raycaster.setFromCamera(CENTER, this.camera);
+    this.raycaster.setFromCamera(aim || CENTER, this.camera);
     const hit = this.carManager.raycast(this.raycaster);
     const def = this.def;
     const inRange = !!hit && hit.distance <= def.range;

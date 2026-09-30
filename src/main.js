@@ -155,28 +155,38 @@ class Game {
   }
 
   // ---------------------------------------------------------------- girdi
+  /** Oyun girdiyi alıyor mu? (fare kilidi ya da serbest fare modu) */
+  get active() {
+    return this.controls.isLocked || this.freeActive;
+  }
+
   bindInput() {
-    const startScreen = document.getElementById('start-screen');
     const startBtn = document.getElementById('start-btn');
+    this.freeMode = false; // fare kilidi desteklenmiyorsa true
+    this.freeActive = false;
+    this.looking = false;
+    this.aim = new THREE.Vector2(0, 0);
+    this.lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 
     startBtn.addEventListener('click', () => {
       this.audio.init();
-      this.requestLock();
+      if (this.freeMode) this.enterFree();
+      else this.requestLock();
     });
 
     this.controls.addEventListener('lock', () => {
-      startScreen.classList.add('hidden');
+      this.freeMode = false;
+      this.freeActive = false;
+      this.aim.set(0, 0);
+      this.hud.setCrosshairPos(null);
+      document.body.classList.remove('free-mouse');
+      this.hideStart();
       this.economy.closeShop();
-      this.hud.show();
-      this.started = true;
     });
     this.controls.addEventListener('unlock', () => {
       this.firing = false;
       this.keys.clear();
-      if (!this.economy.shopOpen) {
-        startBtn.textContent = 'Devam Et';
-        startScreen.classList.remove('hidden');
-      }
+      if (!this.economy.shopOpen) this.showStart('Devam Et');
     });
 
     document.getElementById('shop-close').addEventListener('click', () => this.closeShop());
@@ -190,10 +200,14 @@ class Game {
 
       if (e.code === 'KeyE' || e.code === 'Tab') {
         if (this.economy.shopOpen) this.closeShop();
-        else if (this.controls.isLocked) this.openShop();
+        else if (this.active) this.openShop();
         return;
       }
-      if (!this.controls.isLocked) return;
+      if (e.code === 'Escape' && this.freeActive) {
+        this.pauseFree();
+        return;
+      }
+      if (!this.active) return;
       this.keys.add(e.code);
       if (e.code.startsWith('Digit')) {
         const n = Number(e.code.slice(5)) - 1;
@@ -206,15 +220,24 @@ class Game {
       if (e.code === 'KeyM') this.hud.hint(this.audio.toggleMute() ? 'Ses kapalı' : 'Ses açık', 1.2);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('blur', () => {
+      this.firing = false;
+      this.looking = false;
+      this.keys.clear();
+    });
 
+    this.renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('mousedown', (e) => {
-      if (e.button === 0 && this.controls.isLocked) this.firing = true;
+      if (!this.active) return;
+      if (e.button === 0) this.firing = true;
+      if (e.button === 2 && this.freeActive) this.looking = true;
     });
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.firing = false;
+      if (e.button === 2) this.looking = false;
     });
     window.addEventListener('wheel', (e) => {
-      if (!this.controls.isLocked) return;
+      if (!this.active) return;
       const n = TOOL_DEFS.length;
       let i = this.tools.index;
       for (let k = 0; k < n; k++) {
@@ -224,7 +247,23 @@ class Game {
       this.tools.select(i);
     });
     document.addEventListener('mousemove', (e) => {
-      if (this.controls.isLocked) this.mouseDist += Math.hypot(e.movementX, e.movementY);
+      if (this.controls.isLocked) {
+        this.mouseDist += Math.hypot(e.movementX, e.movementY);
+        return;
+      }
+      if (!this.freeActive) return;
+      this.mouseDist += Math.hypot(e.movementX, e.movementY);
+      // Serbest fare: araç imlecin gösterdiği yere nişan alır
+      this.aim.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+      this.hud.setCrosshairPos(e.clientX, e.clientY);
+      // Sağ tuş basılıyken sürükleyerek etrafa bak
+      if (this.looking) {
+        const q = this.camera.quaternion;
+        this.lookEuler.setFromQuaternion(q);
+        this.lookEuler.y -= e.movementX * 0.0035;
+        this.lookEuler.x = THREE.MathUtils.clamp(this.lookEuler.x - e.movementY * 0.0035, -1.5, 1.5);
+        q.setFromEuler(this.lookEuler);
+      }
     });
 
     window.addEventListener('resize', () => {
@@ -237,37 +276,70 @@ class Game {
     });
   }
 
-  /** Fare kilidi iste; tarayıcı reddederse oyuncuya söyle */
+  showStart(label) {
+    document.getElementById('start-btn').textContent = label;
+    document.getElementById('start-screen').classList.remove('hidden');
+  }
+
+  hideStart() {
+    document.getElementById('start-screen').classList.add('hidden');
+    this.hud.show();
+    this.started = true;
+  }
+
+  /** Fare kilidi iste; ortam desteklemiyorsa serbest fare moduna geç */
   requestLock() {
+    const fail = (err) => {
+      // Kilitten yeni çıkıldıysa tarayıcı kısa bir süre yeniden kilitlemeye izin vermez
+      if (/exited|too soon|before this request/i.test(err?.message || '')) this.showStart('Bir saniye bekle ve tekrar tıkla');
+      else this.enterFree(true);
+    };
     try {
       const p = document.body.requestPointerLock();
-      p?.catch?.(() => this.lockFailed('Fare kilitlenemedi — tekrar tıkla'));
-    } catch {
-      this.lockFailed('Bu tarayıcı fare kilidini desteklemiyor');
+      p?.catch?.(fail);
+    } catch (err) {
+      fail(err);
     }
   }
 
-  lockFailed(text) {
-    document.getElementById('start-btn').textContent = text;
-    document.getElementById('start-screen').classList.remove('hidden');
+  /** Fare kilidi olmadan oyna: sağ tuşla sürükleyerek bak, imleçle nişan al */
+  enterFree(announce = false) {
+    this.freeMode = true;
+    this.freeActive = true;
+    document.body.classList.add('free-mouse');
+    this.hideStart();
+    this.economy.closeShop();
+    if (announce) this.hud.message('Fare kilidi kullanılamıyor<br><small>Sağ tuşla sürükleyerek etrafa bak · Sol tık ile temizle · Esc: duraklat</small>', 5);
+  }
+
+  pauseFree() {
+    this.freeActive = false;
+    this.firing = false;
+    this.looking = false;
+    this.keys.clear();
+    this.showStart('Devam Et');
   }
 
   openShop() {
     this.economy.openShop();
-    this.controls.unlock();
     this.audio.click();
+    this.firing = false;
+    this.looking = false;
+    if (this.controls.isLocked) this.controls.unlock();
+    else this.freeActive = false;
   }
 
   closeShop() {
     this.economy.closeShop();
     this.audio.click();
+    if (this.freeMode) {
+      this.freeActive = true;
+      return;
+    }
     // Tarayıcı hemen tekrar kilitlemeye izin vermeyebilir; başarısız olursa başlangıç ekranı görünür
     this.requestLock();
     setTimeout(() => {
-      if (!this.controls.isLocked) {
-        document.getElementById('start-btn').textContent = 'Devam Et';
-        document.getElementById('start-screen').classList.remove('hidden');
-      }
+      if (!this.active && !this.economy.shopOpen) this.showStart('Devam Et');
     }, 400);
   }
 
@@ -352,7 +424,7 @@ class Game {
     const dt = Math.min(this.timer.getDelta(), 1 / 20);
     this.time += dt;
 
-    const playing = this.controls.isLocked || this.debugPlay;
+    const playing = this.active || this.debugPlay;
     this.mouseSpeed = THREE.MathUtils.lerp(this.mouseSpeed, this.mouseDist / Math.max(dt, 1e-3), 1 - Math.exp(-dt * 10));
     this.mouseDist = 0;
 
@@ -362,6 +434,7 @@ class Game {
     }
     this.tools.update(dt, {
       firing: playing && this.firing,
+      aim: this.freeActive ? this.aim : null,
       mouseSpeed: this.mouseSpeed,
       moving: playing && this.moving,
       time: this.time,

@@ -50,6 +50,12 @@ export class HUD {
     this.crosshair.classList.toggle('out-of-range', state === 'far');
   }
 
+  /** Serbest fare modunda nişangâh imleci izler; null → ekran ortası */
+  setCrosshairPos(x, y) {
+    this.crosshair.style.left = x == null ? '' : `${x}px`;
+    this.crosshair.style.top = y == null ? '' : `${y}px`;
+  }
+
   hint(text, duration = 2.2) {
     this.toolHint.textContent = text;
     this.toolHint.classList.add('show');
