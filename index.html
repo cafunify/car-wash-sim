@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parıltı Oto Yıkama</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"><span></span></div>
+
+    <!-- Üst orta: temizlik -->
+    <div id="progress-panel" class="panel">
+      <div class="progress-head">
+        <span class="label">Temizlik</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar"><div id="progress-fill"></div></div>
+      <div class="layers">
+        <div class="layer" data-layer="mud"><i></i><span>Çamur</span><b>0%</b></div>
+        <div class="layer" data-layer="stain"><i></i><span>Leke</span><b>0%</b></div>
+        <div class="layer" data-layer="dry"><i></i><span>Kuruluk</span><b>0%</b></div>
+      </div>
+    </div>
+
+    <!-- Sol üst: müşteri -->
+    <div id="customer-panel" class="panel">
+      <div class="customer-title">
+        <span class="dot"></span>
+        <span id="customer-name">Müşteri bekleniyor…</span>
+      </div>
+      <div class="customer-row">
+        <span>Ücret</span><b id="customer-pay">—</b>
+      </div>
+      <div class="customer-row">
+        <span>Bahşiş süresi</span><b id="customer-time">—</b>
+      </div>
+      <div class="timer-bar"><div id="timer-fill"></div></div>
+    </div>
+
+    <!-- Sağ üst: para -->
+    <div id="money-panel" class="panel">
+      <span class="money-icon">$</span>
+      <span id="money">0</span>
+    </div>
+    <div id="money-sub">Yıkanan: <b id="washed-count">0</b></div>
+
+    <!-- Alt orta: araç çubuğu -->
+    <div id="toolbar"></div>
+    <div id="tool-hint"></div>
+
+    <!-- Sol alt: kısayollar -->
+    <div id="keys-help">
+      <div><kbd>E</kbd>/<kbd>Tab</kbd> Mağaza</div>
+      <div><kbd>F</kbd> Kir tarayıcı</div>
+      <div><kbd>M</kbd> Ses</div>
+    </div>
+
+    <div id="toasts"></div>
+    <div id="center-msg"></div>
+  </div>
+
+  <!-- Başlangıç / duraklama ekranı -->
+  <div id="start-screen" class="overlay">
+    <div class="start-card">
+      <div class="logo">
+        <span class="logo-sparkle">✦</span>
+        <h1>PARILTI<span>OTO YIKAMA</span></h1>
+      </div>
+      <p class="tagline">Kirli arabaları pırıl pırıl yap, parayı topla, dükkânını büyüt.</p>
+      <button id="start-btn" class="btn-primary">Tıkla ve Başla</button>
+      <div class="controls-grid">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Hareket</div>
+        <div><kbd>Shift</kbd> Koş</div>
+        <div><kbd>Fare</kbd> Etrafa bak</div>
+        <div><kbd>Sol Tık</kbd> Aracı kullan</div>
+        <div><kbd>1</kbd> Basınçlı Hortum — çamur</div>
+        <div><kbd>2</kbd> Köpük Topu — şampuan</div>
+        <div><kbd>3</kbd> Sünger — lekeler</div>
+        <div><kbd>4</kbd> Havlu — kurutma</div>
+        <div><kbd>E</kbd>/<kbd>Tab</kbd> Mağaza</div>
+        <div><kbd>F</kbd> Kalan kiri göster</div>
+      </div>
+      <p class="tip">İpucu: Sünger ve havluyu kullanırken fareyi hareket ettir — ovalamak daha hızlı temizler!</p>
+    </div>
+  </div>
+
+  <!-- Mağaza -->
+  <div id="shop" class="overlay hidden">
+    <div class="shop-card">
+      <div class="shop-header">
+        <div>
+          <h2>Mağaza</h2>
+          <p>Ekipmanını ve dükkânını geliştir.</p>
+        </div>
+        <div class="shop-money"><span>$</span><b id="shop-money">0</b></div>
+      </div>
+      <div id="shop-items"></div>
+      <div class="shop-footer">
+        <button id="reset-btn" class="btn-ghost">İlerlemeyi sıfırla</button>
+        <button id="shop-close" class="btn-primary">Devam et <kbd>E</kbd></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading" class="overlay">
+    <div class="spinner"></div>
+    <p>Garaj hazırlanıyor…</p>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
