@@ -194,54 +194,74 @@ body.free-mouse #crosshair { transition: none; }
 #money-sub b { color: var(--text); }
 @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.12); } 100% { transform: scale(1); } }
 
-/* Araç çubuğu */
-#toolbar {
+/* Elindeki alet */
+#held-tool {
   position: absolute;
   bottom: 22px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 10px;
-}
-.tool-slot {
-  position: relative;
-  width: 86px;
-  height: 86px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px 10px 12px;
   border-radius: 16px;
   background: var(--bg-glass);
-  border: 2px solid var(--border);
+  border: 2px solid var(--accent);
   backdrop-filter: blur(10px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 0 22px rgba(53, 208, 255, 0.25);
+  white-space: nowrap;
 }
-.tool-slot .icon { font-size: 30px; line-height: 1; }
-.tool-slot .name { font-size: 11px; color: var(--muted); font-weight: 500; }
-.tool-slot .key {
+#held-tool.empty { border-color: var(--border); box-shadow: none; }
+#held-tool .icon { font-size: 30px; line-height: 1; }
+#held-tool b { display: block; font-size: 15px; }
+#held-tool small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+#prompt {
   position: absolute;
-  top: 5px;
-  left: 7px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
+  left: 50%;
+  top: calc(50% + 34px);
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: rgba(10, 14, 24, 0.72);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
-.tool-slot.active {
-  border-color: var(--accent);
-  transform: translateY(-6px);
-  box-shadow: 0 0 22px rgba(53, 208, 255, 0.35);
-}
-.tool-slot.active .name { color: var(--text); }
-.tool-slot.locked { opacity: 0.45; }
-.tool-slot.locked::after {
-  content: '🔒';
-  position: absolute;
-  top: 4px;
-  right: 6px;
+#prompt.show { opacity: 1; }
+#prompt kbd { margin-right: 6px; }
+#prompt .locked { color: var(--gold); }
+
+/* Paket rozeti */
+.pkg-badge {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 3px 10px;
+  border-radius: 99px;
   font-size: 12px;
+  font-weight: 700;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c) 55%, transparent);
 }
+.layers.many { flex-wrap: wrap; gap: 6px 14px; }
+.layers.many .layer { flex: 0 0 calc(33% - 10px); }
+
+.shop-packages { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.pkg-chip {
+  padding: 6px 12px;
+  border-radius: 99px;
+  font-size: 13px;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+}
+.pkg-chip.on { color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 12%, transparent); }
+.pkg-chip b { font-weight: 800; }
+.credits { margin: 10px 0 0; font-size: 11px; color: var(--muted); opacity: 0.8; }
+
 #tool-hint {
   position: absolute;
   bottom: 124px;
@@ -473,6 +493,6 @@ body.free-mouse #crosshair { transition: none; }
   .controls-grid { grid-template-columns: 1fr; }
   .logo h1 { font-size: 38px; }
   #customer-panel { display: none; }
-  .tool-slot { width: 66px; height: 66px; }
+  #held-tool small { display: none; }
   #keys-help { display: none; }
 }

@@ -1,3 +1,5 @@
+import { availablePackages, PACKAGES } from './Packages.js';
+
 /**
  * Para, yükseltmeler, müşteri zamanlayıcısı / bahşiş, kayıt ve mağaza arayüzü.
  */
@@ -33,7 +35,7 @@ export const UPGRADES = [
     icon: '🫧',
     desc: 'Aracı aktif köpükle kapla. Köpüklü yüzeyde sünger 3 kat hızlı temizler.',
     costs: [90],
-    effect: (l) => (l ? 'Açık — tuş 2' : 'Kilitli'),
+    effect: (l) => (l ? 'Rafta seni bekliyor' : 'Kilitli'),
   },
   {
     id: 'sponge',
@@ -50,6 +52,38 @@ export const UPGRADES = [
     desc: 'Daha büyük ve emici havlu, aracı hızla kurutur.',
     costs: [100, 280],
     effect: (l) => `Kurutma hızı ×${TABLE.towelSpeed[l]}`,
+  },
+  {
+    id: 'rimcleaner',
+    name: 'Jant Temizleyici',
+    icon: '🛞',
+    desc: 'Demir tozu çözücü + yumuşak fırça. Jantlardaki fren tozunu söker (tozla temas edince morarır).',
+    costs: [150],
+    effect: (l) => (l ? 'Rafta' : 'Detaylı Yıkama için gerekli'),
+  },
+  {
+    id: 'tireshine',
+    name: 'Lastik Parlatıcı',
+    icon: '⚫',
+    desc: 'Soluk, grileşmiş lastikleri derin ve ıslak görünümlü siyaha çevirir.',
+    costs: [120],
+    effect: (l) => (l ? 'Rafta' : 'Detaylı Yıkama için gerekli'),
+  },
+  {
+    id: 'glasscleaner',
+    name: 'Cam Temizleyici',
+    icon: '🪟',
+    desc: 'Camlardaki puslu film ve kireç lekelerini iz bırakmadan siler.',
+    costs: [100],
+    effect: (l) => (l ? 'Rafta' : 'Detaylı Yıkama için gerekli'),
+  },
+  {
+    id: 'polisher',
+    name: 'Cila Makinesi',
+    icon: '✨',
+    desc: 'Orbital makineyle temiz boyaya cila: ayna gibi parlaklık ve metalik pul ışıltısı.',
+    costs: [450],
+    effect: (l) => (l ? 'Rafta' : 'Premium Detailing için gerekli'),
   },
   {
     id: 'shop',
@@ -82,7 +116,10 @@ export class EconomyManager {
 
   // ---------------------------------------------------------------- kayıt
   defaultState() {
-    return { money: START_MONEY, washed: 0, totalEarned: 0, levels: { nozzle: 0, foam: 0, sponge: 0, towel: 0, shop: 0 } };
+    return {
+      money: START_MONEY, washed: 0, totalEarned: 0,
+      levels: { nozzle: 0, foam: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, shop: 0 },
+    };
   }
 
   load() {
@@ -128,14 +165,31 @@ export class EconomyManager {
   get foamUnlocked() { return this.level('foam') > 0; }
   get shopLevel() { return this.level('shop'); }
 
+  owns = (key) => this.level(key) > 0;
+
+  /** Bir ekipmanın bir sonraki seviye fiyatı */
+  costOf(id) {
+    const up = UPGRADES.find((u) => u.id === id);
+    return up?.costs[this.level(id)] ?? 0;
+  }
+
+  get packages() {
+    return availablePackages(this.owns);
+  }
+
   // ---------------------------------------------------------------- müşteri
   startCustomer(car) {
-    this.customer = { car, elapsed: 0, target: car.def.time };
-    this.hud.setCustomer(car.customer, car.def.name, this.estimatePay(car.def.pay));
+    const pkg = car.package || PACKAGES.standart;
+    this.customer = { car, elapsed: 0, target: Math.round(car.def.time * pkg.time) };
+    this.hud.setCustomer(car.customer, car.def.name, this.estimatePay(car.def.pay * pkg.mult), pkg);
+  }
+
+  get multiplier() {
+    return TABLE.spongeMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]);
   }
 
   estimatePay(base) {
-    return Math.round(base * TABLE.spongeMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]));
+    return Math.round(base * this.multiplier);
   }
 
   update(dt) {
@@ -149,10 +203,10 @@ export class EconomyManager {
   payout() {
     const c = this.customer;
     if (!c) return null;
-    const base = c.car.def.pay;
+    const base = c.car.def.pay * (c.car.package?.mult || 1);
     const timeFrac = Math.max(0, 1 - c.elapsed / c.target);
     const tip = base * 0.35 * timeFrac;
-    const mult = TABLE.spongeMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]);
+    const mult = this.multiplier;
     const total = Math.round((base + tip) * mult);
     const tipShown = Math.round(tip * mult);
 
@@ -197,7 +251,10 @@ export class EconomyManager {
 
   renderShop() {
     this.shopMoneyEl.textContent = this.state.money.toLocaleString('tr-TR');
-    this.itemsEl.innerHTML = UPGRADES.map((u) => {
+    const open = new Set(this.packages.map((p) => p.id));
+    const pkgs = Object.values(PACKAGES).map((p) =>
+      `<span class="pkg-chip ${open.has(p.id) ? 'on' : ''}" style="--c:${p.color}">${open.has(p.id) ? '✓' : '🔒'} ${p.name} <b>×${p.mult}</b></span>`).join('');
+    this.itemsEl.innerHTML = `<div class="shop-packages">${pkgs}</div>` + UPGRADES.map((u) => {
       const lvl = this.level(u.id);
       const max = u.costs.length;
       const maxed = lvl >= max;

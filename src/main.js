@@ -13,14 +13,14 @@ import { Tools, TOOL_DEFS } from './Tools.js';
 import { EconomyManager, SHOP_LEVEL_NAMES } from './EconomyManager.js';
 import { HUD } from './HUD.js';
 import { AudioManager } from './Audio.js';
+import { ToolRack } from './ToolRack.js';
+import { PACKAGES, LAYERS, pickPackage, packageProgress } from './Packages.js';
 
 const EYE_HEIGHT = 1.68;
 const WALK_SPEED = 3.3;
 const RUN_SPEED = 5.6;
 const PLAYER_RADIUS = 0.32;
 
-// Katman tamamlanma eşikleri (temiz örnek oranı)
-const THRESHOLDS = { mud: 0.97, stain: 0.96, dry: 0.95 };
 
 class Game {
   constructor() {
@@ -79,6 +79,8 @@ class Game {
     this.effects = new Effects(scene);
     this.economy = new EconomyManager(this.hud, this.audio, { onUpgrade: (id, lvl) => this.onUpgrade(id, lvl) });
     this.cars = new CarManager(scene, {
+      renderer,
+      camera,
       onArrived: (car) => this.onCarArrived(car),
       onLeft: () => (this.waitTimer = 1.2),
     });
@@ -90,14 +92,19 @@ class Game {
       economy: this.economy,
       hud: this.hud,
     });
-    this.hud.buildToolbar(TOOL_DEFS);
-    this.hud.setActiveTool(0, this.tools.lockedFlags());
-    this.hud.setProgress(0, null, false);
+    this.rack = new ToolRack(scene, { tools: this.tools, economy: this.economy });
+    this.tools.onChange = (i) => {
+      this.hud.setHeldTool(TOOL_DEFS[i] || null);
+      this.rack.refresh();
+    };
+    this.hud.setHeldTool(null);
+    this.knownPackages = new Set(this.economy.packages.map((p) => p.id));
 
     this.applyLevel(this.economy.shopLevel);
-    await this.cars.preload();
-    this.cars.spawn(this.economy.shopLevel);
-    this.hud.message('Müşteri geliyor…', 2.5);
+    await this.cars.preload(this.economy.shopLevel);
+    this.spawnCar();
+    await this.cars.car.ready;
+    this.hud.message('Müşteri geliyor…<br><small>Aletler sağdaki rafta — bak ve E ile al</small>', 3.5);
 
     this.bindInput();
     document.getElementById('loading').classList.add('hidden');
@@ -106,10 +113,19 @@ class Game {
   }
 
   // ---------------------------------------------------------------- olaylar
+  spawnCar() {
+    const pkg = pickPackage(this.economy.owns);
+    this.cars.spawn(this.economy.shopLevel, pkg);
+    this.hud.setPackage(pkg);
+    this.hud.setProgress(0, null, false);
+    this.hints = new Set();
+  }
+
   onCarArrived(car) {
     this.economy.startCustomer(car);
     this.audio.carArrive();
-    this.hud.message(`<b>${car.customer}</b> ${car.def.name} ile geldi!<br><small>Önce hortumla çamuru sök</small>`, 3);
+    const extra = car.package.id === 'standart' ? 'Önce hortumla çamuru sök' : `${car.package.name} istiyor: jant, lastik ve cam da dahil${car.package.id === 'premium' ? ' + cila' : ''}`;
+    this.hud.message(`<b>${car.customer}</b> ${car.def.name} ile geldi!<br><small>${extra}</small>`, 3.5);
   }
 
   onCarWashed() {
@@ -119,16 +135,25 @@ class Game {
     this.audio.complete();
     const box = this.cars.worldBox(new THREE.Box3());
     if (box) this.effects.sparkleBurst(box);
-    if (res) this.hud.toast(`+$${res.total}`, res.tip > 0 ? `Bahşiş dahil +$${res.tip} ⏱` : `${car.customer} memnun!`);
-    this.hud.setProgress(1, { mud: 1, stain: 1, dry: 1 }, true);
+    if (res) this.hud.toast(`+$${res.total}`, `${car.package.name}${res.tip > 0 ? ` · bahşiş +$${res.tip} ⏱` : ` · ${car.customer} memnun!`}`);
+    this.hud.setProgress(1, Object.fromEntries(car.package.layers.map((l) => [l, 1])), true);
   }
 
   onUpgrade(id, level) {
-    if (id === 'shop' || id === 'reset') this.applyLevel(this.economy.shopLevel, id === 'shop');
-    this.hud.setActiveTool(this.tools.index, this.tools.lockedFlags());
-    if (id === 'reset' && this.tools.isLocked(this.tools.index)) this.tools.select(0);
-    if (id === 'foam') this.hud.toast('Köpük Topu açıldı!', 'Tuş 2 ile seç', 'info');
+    if (id === 'shop' || id === 'reset') this.applyLevel(this.economy.shopLevel);
+    if (id === 'reset' && this.tools.index >= 0 && this.tools.isLocked(this.tools.index)) this.tools.putDown();
+    this.rack.refresh();
+    const tool = TOOL_DEFS.find((t) => t.unlock === id);
+    if (tool) this.hud.toast(`${tool.name}`, 'Raftaki yerini aldı', 'info');
     if (id === 'shop') this.hud.toast(`${SHOP_LEVEL_NAMES[level]}`, 'Yeni araç tipleri geliyor!', 'info');
+    // Yeni açılan paket duyurusu
+    for (const p of this.economy.packages) {
+      if (!this.knownPackages.has(p.id)) {
+        this.knownPackages.add(p.id);
+        setTimeout(() => this.hud.toast(`${p.name} açıldı!`, `Müşteriler artık ×${p.mult} kazançlı paket isteyebilir`, 'info'), 900);
+      }
+    }
+    if (id === 'reset') this.knownPackages = new Set(this.economy.packages.map((p) => p.id));
   }
 
   applyLevel(level) {
@@ -143,6 +168,7 @@ class Game {
   /** Garajın o anki halini yansıma haritası olarak yakala (araç ve el modeli hariç) */
   captureReflections() {
     const hidden = [this.tools?.view, this.cars?.car?.root, this.effects?.water.points, this.effects?.foam.points, this.effects?.sparkle.points].filter(Boolean);
+    const wasVisible = hidden.map((o) => o.visible);
     hidden.forEach((o) => (o.visible = false));
     const prevEnv = this.scene.environment;
     this.scene.environment = null;
@@ -151,7 +177,7 @@ class Game {
     this.envTarget?.dispose();
     if (!this.envTarget) prevEnv?.dispose();
     this.envTarget = rt;
-    hidden.forEach((o) => (o.visible = true));
+    hidden.forEach((o, i) => (o.visible = wasVisible[i]));
   }
 
   // ---------------------------------------------------------------- girdi
@@ -198,7 +224,7 @@ class Game {
       if (e.code === 'Tab') e.preventDefault();
       if (e.repeat) return;
 
-      if (e.code === 'KeyE' || e.code === 'Tab') {
+      if (e.code === 'Tab' || (e.code === 'KeyE' && this.economy.shopOpen)) {
         if (this.economy.shopOpen) this.closeShop();
         else if (this.active) this.openShop();
         return;
@@ -209,10 +235,8 @@ class Game {
       }
       if (!this.active) return;
       this.keys.add(e.code);
-      if (e.code.startsWith('Digit')) {
-        const n = Number(e.code.slice(5)) - 1;
-        if (n >= 0 && n < TOOL_DEFS.length) this.tools.select(n);
-      }
+      if (e.code === 'KeyE') this.interact();
+      if (e.code === 'KeyQ' && this.tools.putDown()) this.hud.hint('Alet rafa bırakıldı', 1.2);
       if (e.code === 'KeyF') {
         this.cars.pulseHighlight();
         this.hud.hint('Kir tarayıcı: turuncu = kir, mavi = ıslak');
@@ -235,16 +259,6 @@ class Game {
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.firing = false;
       if (e.button === 2) this.looking = false;
-    });
-    window.addEventListener('wheel', (e) => {
-      if (!this.active) return;
-      const n = TOOL_DEFS.length;
-      let i = this.tools.index;
-      for (let k = 0; k < n; k++) {
-        i = (i + (e.deltaY > 0 ? 1 : -1) + n) % n;
-        if (!this.tools.isLocked(i)) break;
-      }
-      this.tools.select(i);
     });
     document.addEventListener('mousemove', (e) => {
       if (this.controls.isLocked) {
@@ -343,6 +357,31 @@ class Game {
     }, 400);
   }
 
+  // ---------------------------------------------------------------- raf etkileşimi
+  updateRackHover() {
+    const rc = this.tools.raycaster; // Tools bu karede kamera/nişan ışınını kurdu
+    const h = this.active || this.debugPlay ? this.rack.raycast(rc) : null;
+    this.rackHover = h;
+    if (!h) return this.hud.setPrompt(null);
+    if (h.shop) return this.hud.setPrompt('<kbd>E</kbd> Mağazayı aç');
+    const def = TOOL_DEFS[h.tool];
+    if (this.tools.index === h.tool) return this.hud.setPrompt(`<kbd>E</kbd> ${def.short} rafa bırak`);
+    if (this.tools.isLocked(h.tool)) return this.hud.setPrompt(`<span class="locked">🔒 ${def.name} — $${this.economy.costOf(def.unlock)} · Mağaza (Tab)</span>`);
+    const swap = this.tools.index >= 0 ? ` <small>(${TOOL_DEFS[this.tools.index].short} rafa döner)</small>` : '';
+    this.hud.setPrompt(`<kbd>E</kbd> ${def.name} al${swap}`);
+  }
+
+  interact() {
+    const h = this.rackHover;
+    if (!h) {
+      if (this.tools.index < 0) this.hud.hint('Aletler aracın yanındaki rafta — rafa bakıp E\'ye bas', 2.5);
+      return;
+    }
+    if (h.shop) return this.openShop();
+    if (this.tools.index === h.tool) this.tools.putDown();
+    else this.tools.pickUp(h.tool);
+  }
+
   // ---------------------------------------------------------------- oyuncu hareketi
   updatePlayer(dt) {
     const k = this.keys;
@@ -368,9 +407,11 @@ class Game {
     pos.x = THREE.MathUtils.clamp(pos.x, WALK_BOUNDS.minX, WALK_BOUNDS.maxX);
     pos.z = THREE.MathUtils.clamp(pos.z, WALK_BOUNDS.minZ, WALK_BOUNDS.maxZ);
 
-    // Araçla çarpışma (XZ düzleminde AABB itmesi)
-    const box = this.cars.worldBox(this._box || (this._box = new THREE.Box3()));
-    if (box) {
+    // Araç ve rafla çarpışma (XZ düzleminde AABB itmesi)
+    const boxes = [this.rack.collider];
+    const carBox = this.cars.worldBox(this._box || (this._box = new THREE.Box3()));
+    if (carBox) boxes.push(carBox);
+    for (const box of boxes) {
       const minX = box.min.x - PLAYER_RADIUS, maxX = box.max.x + PLAYER_RADIUS;
       const minZ = box.min.z - PLAYER_RADIUS, maxZ = box.max.z + PLAYER_RADIUS;
       if (pos.x > minX && pos.x < maxX && pos.z > minZ && pos.z < maxZ) {
@@ -392,29 +433,26 @@ class Game {
     this.statsTimer = 0.1;
     const s = this.cars.stats();
     if (!s) return;
-    const layers = {
-      mud: Math.min(1, s.mud / THRESHOLDS.mud),
-      stain: Math.min(1, s.stain / THRESHOLDS.stain),
-      dry: Math.min(1, s.dry / THRESHOLDS.dry),
-    };
-    const total = layers.mud * 0.4 + layers.stain * 0.4 + layers.dry * 0.2;
-    const done = layers.mud >= 1 && layers.stain >= 1 && layers.dry >= 1 && s.foam < 0.02;
+    const pkg = this.cars.car.package;
+    const { layers, total, done } = packageProgress(pkg, s);
     this.hud.setProgress(total, layers, done);
     this.lastStats = { ...s, layers, total };
+    this.audio.setDrips(Math.min(1, (1 - s.dry) * 1.5));
 
-    // Bağlamsal yönlendirme
-    if (!done && total > 0.93 && !this.nearlyHinted) {
-      this.nearlyHinted = true;
-      this.hud.hint('Neredeyse bitti! Kalan kiri görmek için F', 3.5);
-    }
-    if (layers.mud >= 1 && layers.stain >= 1 && layers.dry < 1 && !this.dryHinted) {
-      this.dryHinted = true;
-      this.hud.hint('Tertemiz! Şimdi havluyla [4] kurula', 3);
-    }
-    if (s.foam >= 0.02 && layers.mud >= 1 && layers.stain >= 1 && !this.rinseHinted) {
-      this.rinseHinted = true;
-      this.hud.hint('Köpük kaldı — hortumla durula [1]', 3);
-    }
+    // Bağlamsal yönlendirme (her araçta bir kez)
+    const hintOnce = (key, cond, text, dur = 3) => {
+      if (cond && !this.hints.has(key)) {
+        this.hints.add(key);
+        this.hud.hint(text, dur);
+      }
+    };
+    const washed = layers.mud >= 1 && layers.stain >= 1;
+    hintOnce('nearly', !done && total > 0.93, 'Neredeyse bitti! Kalan yerleri görmek için F', 3.5);
+    hintOnce('rinse', s.foam >= 0.02 && washed, 'Köpük kaldı — hortumla durula');
+    hintOnce('dry', washed && layers.dry < 1 && s.foam < 0.02, 'Tertemiz! Şimdi havluyla kurula');
+    const details = ['rims', 'tires', 'glass'].filter((l) => l in layers && layers[l] < 1).map((l) => LAYERS[l].label.toLowerCase());
+    hintOnce('details', washed && layers.dry >= 1 && details.length, `Sırada detaylar: ${details.join(', ')}`, 3.5);
+    hintOnce('polish', 'polish' in layers && washed && layers.dry >= 1 && !details.length && layers.polish < 1, 'Son dokunuş: cila makinesiyle boyayı parlat', 3.5);
     if (done) this.onCarWashed();
   }
 
@@ -440,16 +478,16 @@ class Game {
       time: this.time,
     });
 
+    this.updateRackHover();
     this.cars.update(dt, this.time);
     this.updateProgress(dt);
+    this.audio.update(dt);
 
     // Sıradaki müşteri
     if (!this.cars.car && this.waitTimer > 0) {
       this.waitTimer -= dt;
       if (this.waitTimer <= 0) {
-        this.cars.spawn(this.economy.shopLevel);
-        this.nearlyHinted = this.dryHinted = this.rinseHinted = false;
-        this.hud.setProgress(0, null, false);
+        this.spawnCar();
         this.hud.message('Yeni müşteri geliyor…', 2);
       }
     }
@@ -478,7 +516,20 @@ class Game {
       stats: () => this.lastStats,
       play: (on = true) => (this.debugPlay = on),
       fire: (on = true) => (this.firing = on),
-      tool: (i) => this.tools.select(i),
+      tool: (i) => this.tools.pickUp(i),
+      interact: () => this.interact(),
+      unlockAll: () => {
+        for (const k of ['foam', 'rimcleaner', 'tireshine', 'glasscleaner', 'polisher']) this.economy.state.levels[k] = 1;
+        this.economy.save();
+        this.onUpgrade('unlock', 1);
+      },
+      nextCar: (pkgId) => {
+        this.cars.disposeCar();
+        const pkg = PACKAGES[pkgId] || pickPackage(this.economy.owns);
+        this.cars.spawn(this.economy.shopLevel, pkg);
+        this.hud.setPackage(pkg);
+        this.hints = new Set();
+      },
       teleport: (x, z, lookX = 0, lookY = 1, lookZ = 0) => {
         this.camera.position.set(x, EYE_HEIGHT, z);
         this.camera.lookAt(lookX, lookY, lookZ);

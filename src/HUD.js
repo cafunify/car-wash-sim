@@ -1,5 +1,7 @@
+import { LAYERS } from './Packages.js';
+
 /**
- * DOM tabanlı HUD: temizlik barı, araç çubuğu, müşteri, para, bildirimler.
+ * DOM tabanlı HUD: temizlik barı, elindeki alet, müşteri, para, bildirimler.
  */
 export class HUD {
   constructor() {
@@ -8,13 +10,11 @@ export class HUD {
     this.progressPanel = this.$('progress-panel');
     this.progressPct = this.$('progress-pct');
     this.progressFill = this.$('progress-fill');
-    this.layerEls = {
-      mud: this.progressPanel.querySelector('[data-layer="mud"]'),
-      stain: this.progressPanel.querySelector('[data-layer="stain"]'),
-      dry: this.progressPanel.querySelector('[data-layer="dry"]'),
-    };
+    this.layersEl = this.$('layers');
+    this.layerEls = {};
     this.crosshair = this.$('crosshair');
-    this.toolbar = this.$('toolbar');
+    this.heldEl = this.$('held-tool');
+    this.promptEl = this.$('prompt');
     this.toolHint = this.$('tool-hint');
     this.toasts = this.$('toasts');
     this.centerMsg = this.$('center-msg');
@@ -30,19 +30,21 @@ export class HUD {
     this.root.classList.remove('hidden');
   }
 
-  // ---------------------------------------------------------------- araçlar
-  buildToolbar(tools) {
-    this.toolbar.innerHTML = tools
-      .map((t, i) => `<div class="tool-slot" data-i="${i}"><span class="key">${i + 1}</span><span class="icon">${t.icon}</span><span class="name">${t.short}</span></div>`)
-      .join('');
-    this.slots = [...this.toolbar.children];
+  // ---------------------------------------------------------------- aletler
+  /** def: elindeki alet (TOOL_DEFS öğesi) ya da null */
+  setHeldTool(def) {
+    this.heldEl.innerHTML = def
+      ? `<span class="icon">${def.icon}</span><span><b>${def.name}</b><small>Sol tık: kullan · Q: rafa bırak</small></span>`
+      : `<span class="icon empty">✋</span><span><b>Elin boş</b><small>Aracın yanındaki raftan bir alet al (E)</small></span>`;
+    this.heldEl.classList.toggle('empty', !def);
   }
 
-  setActiveTool(index, lockedFlags) {
-    this.slots.forEach((el, i) => {
-      el.classList.toggle('active', i === index);
-      el.classList.toggle('locked', !!lockedFlags[i]);
-    });
+  /** Nişangâhın altında etkileşim ipucu; null gizler */
+  setPrompt(html) {
+    if (html === this.lastPrompt) return;
+    this.lastPrompt = html;
+    this.promptEl.innerHTML = html || '';
+    this.promptEl.classList.toggle('show', !!html);
   }
 
   setCrosshair(state) {
@@ -69,25 +71,38 @@ export class HUD {
   }
 
   // ---------------------------------------------------------------- ilerleme
-  /** layers: { mud, stain, dry } ilerleme (0..1, eşiğe göre normalize) */
+  /** Paketin katmanlarına göre temizlik göstergelerini kur */
+  setPackage(pkg) {
+    this.layersEl.innerHTML = pkg.layers
+      .map((id) => `<div class="layer" data-layer="${id}"><i style="background:${LAYERS[id].color}"></i><span>${LAYERS[id].label}</span><b>0%</b></div>`)
+      .join('');
+    this.layerEls = {};
+    for (const el of this.layersEl.children) this.layerEls[el.dataset.layer] = el;
+    this.layersEl.classList.toggle('many', pkg.layers.length > 4);
+  }
+
+  /** layers: { katman: 0..1 } (eşiğe göre normalize) */
   setProgress(total, layers, complete) {
     const pct = Math.floor(total * 100);
     this.progressPct.textContent = `${pct}%`;
     this.progressFill.style.width = `${total * 100}%`;
     this.progressFill.style.backgroundPosition = `${-(1 - total) * 300}px 0`;
     this.progressPanel.classList.toggle('complete', !!complete);
-    for (const k of ['mud', 'stain', 'dry']) {
-      const el = this.layerEls[k];
-      const v = layers ? layers[k] : 0;
+    for (const [k, el] of Object.entries(this.layerEls)) {
+      const v = layers ? layers[k] ?? 0 : 0;
       el.querySelector('b').textContent = `${Math.floor(v * 100)}%`;
       el.classList.toggle('done', v >= 1);
     }
   }
 
   // ---------------------------------------------------------------- müşteri
-  setCustomer(name, carName, pay) {
+  setCustomer(name, carName, pay, pkg) {
     this.$('customer-name').textContent = `${name} · ${carName}`;
     this.$('customer-pay').textContent = `~$${pay}`;
+    const badge = this.$('customer-pkg');
+    badge.textContent = pkg.name;
+    badge.style.setProperty('--c', pkg.color);
+    badge.classList.remove('hidden');
   }
 
   setTimer(secondsLeft, frac) {
@@ -103,6 +118,7 @@ export class HUD {
     this.$('customer-pay').textContent = '—';
     this.$('customer-time').textContent = '—';
     this.$('timer-fill').style.width = '100%';
+    this.$('customer-pkg').classList.add('hidden');
   }
 
   // ---------------------------------------------------------------- para

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { CAR_CATALOG, prepareGltfCar, buildProceduralCar } from './CarModels.js';
+import { CAR_CATALOG, prepareGltfCar, buildProceduralCar, recolorPaint } from './CarModels.js';
+import { classifyCarParts } from './CarParts.js';
+import { PACKAGES } from './Packages.js';
 import { DirtVolume, applyDirtShader } from './DirtVolume.js';
 
 const CUSTOMERS = [
@@ -23,6 +25,7 @@ const _b = new THREE.Vector3();
 const _c = new THREE.Vector3();
 const _ab = new THREE.Vector3();
 const _ac = new THREE.Vector3();
+let _part = 0;
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const easeInQuad = (t) => t * t;
@@ -32,8 +35,10 @@ const easeInQuad = (t) => t * t;
  * Kir hacmini, raycast'i ve boyamayı yönetir.
  */
 export class CarManager {
-  constructor(scene, { onArrived, onWashed, onLeft } = {}) {
+  constructor(scene, { onArrived, onWashed, onLeft, renderer, camera } = {}) {
     this.scene = scene;
+    this.renderer = renderer;
+    this.camera = camera;
     this.templates = new Map();
     this.car = null;
     this.lastId = null;
@@ -41,27 +46,33 @@ export class CarManager {
     this.highlight = 0;
   }
 
-  async preload(onProgress) {
-    const loader = new GLTFLoader();
-    let done = 0;
-    await Promise.all(
-      CAR_CATALOG.map(async (def) => {
-        if (!def.glb) return;
-        try {
-          const gltf = await loader.loadAsync(def.glb);
-          this.templates.set(def.id, gltf.scene);
-        } catch (err) {
-          console.warn(`[CarManager] ${def.glb} yüklenemedi, prosedürel araç kullanılacak.`, err);
-        } finally {
-          onProgress?.(++done / CAR_CATALOG.length);
-        }
-      }),
-    );
+  /**
+   * Araç modellerini yükle. İlk müşteri için bir aracı bekler, gerisini arka planda
+   * sırayla indirir (GitHub Pages'te açılış hızlı kalsın).
+   */
+  async preload(maxTier = 0) {
+    this.loader = this.loader || new GLTFLoader();
+    const first = this.pickFrom(CAR_CATALOG.filter((d) => d.tier <= maxTier));
+    await this.loadDef(first);
+    this.loadAll = (async () => {
+      const rest = CAR_CATALOG.filter((d) => d !== first).sort((a, b) => a.tier - b.tier);
+      for (const def of rest) await this.loadDef(def);
+    })();
   }
 
-  pickDef(maxTier) {
-    const pool = CAR_CATALOG.filter((d) => d.tier <= maxTier && d.id !== this.lastId);
-    // Yeni açılan araçlar biraz daha sık gelsin
+  async loadDef(def) {
+    if (!def.glb || this.templates.has(def.id) || this.failed?.has(def.id)) return;
+    try {
+      const gltf = await this.loader.loadAsync(def.glb);
+      this.templates.set(def.id, gltf.scene);
+    } catch (err) {
+      (this.failed ||= new Set()).add(def.id);
+      console.warn(`[CarManager] ${def.glb} yüklenemedi, prosedürel araç kullanılacak.`, err);
+    }
+  }
+
+  pickFrom(pool) {
+    // Yeni açılan (üst seviye) araçlar biraz daha sık gelsin
     const weights = pool.map((d) => 1 + d.tier * 0.5);
     let r = Math.random() * weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < pool.length; i++) {
@@ -71,7 +82,14 @@ export class CarManager {
     return pool[pool.length - 1];
   }
 
-  spawn(maxTier = 0) {
+  pickDef(maxTier) {
+    const allowed = CAR_CATALOG.filter((d) => d.tier <= maxTier && d.id !== this.lastId);
+    // Önce modeli inmiş olanlardan seç; hiçbiri inmediyse (ya da hepsi başarısızsa) prosedürel
+    const ready = allowed.filter((d) => this.templates.has(d.id));
+    return this.pickFrom(ready.length ? ready : allowed);
+  }
+
+  spawn(maxTier = 0, pkg = PACKAGES.standart) {
     const def = this.pickDef(maxTier);
     this.lastId = def.id;
 
@@ -83,26 +101,26 @@ export class CarManager {
     root.add(object);
     root.updateMatrixWorld(true);
 
-    const meshes = [];
-    const materials = new Set();
+    const meshes = classifyCarParts(root, { atlas: def.atlas });
+    recolorPaint(meshes, def);
+    const materials = new Set(meshes.map((m) => m.material));
     const wheels = [];
-    root.traverse((o) => {
-      if (o.isMesh) {
-        meshes.push(o);
-        materials.add(o.material);
-      }
-      if (/wheel/i.test(o.name)) wheels.push(o);
-    });
+    root.traverse((o) => /wheel/i.test(o.name) && wheels.push(o));
     const surface = collectTriangles(meshes);
 
     const bounds = new THREE.Box3().setFromObject(root);
     const volume = new DirtVolume(bounds, { seed: (Math.random() * 1e6) | 0 });
     const dirtiness = Math.random();
     volume.generate({ mud: 0.25 + dirtiness * 0.75, stain: Math.random() }, surfaceMask(volume, surface));
-    materials.forEach((m) => applyDirtShader(m, volume.uniforms));
-    volume.setSurfaceSamples(sampleReachable(surface));
+    materials.forEach((m) => applyDirtShader(m, volume.uniforms, { tuneParts: !!def.tune }));
+    const samples = sampleReachable(surface);
+    volume.setSurfaceSamples(samples.positions, samples.parts);
+    const req = (id) => (pkg.layers.includes(id) ? 1 : 0);
+    volume.uniforms.uReq.value.set(req('rims'), req('tires'), req('glass'), req('polish'));
 
     root.position.z = ENTRY_Z;
+    // Shader'ları arka planda derle; derleme bitene kadar araç görünmez ve beklemede kalır
+    root.visible = false;
     this.scene.add(root);
 
     this.car = {
@@ -113,11 +131,22 @@ export class CarManager {
       materials,
       wheels,
       bounds,
+      package: pkg,
       customer: CUSTOMERS[(Math.random() * CUSTOMERS.length) | 0],
-      state: 'arriving',
+      state: 'compiling',
       t: 0,
     };
-    return this.car;
+    const car = this.car;
+    const ready = () => {
+      if (this.car !== car) return;
+      root.visible = true;
+      car.state = 'arriving';
+      car.t = 0;
+    };
+    car.ready = this.renderer
+      ? this.renderer.compileAsync(root, this.camera, this.scene).then(ready, ready)
+      : Promise.resolve(ready());
+    return car;
   }
 
   get isWashable() {
@@ -139,6 +168,8 @@ export class CarManager {
 
     car.t += dt;
     switch (car.state) {
+      case 'compiling':
+        break;
       case 'arriving': {
         const k = Math.min(1, car.t / 3.4);
         const e = easeOutCubic(k);
@@ -236,7 +267,7 @@ export class CarManager {
   }
 
   cleanAll() {
-    this.car?.volume.cleanAll();
+    this.car?.volume.cleanAll(this.car.package.layers.includes('polish'));
   }
 
   disposeCar() {
@@ -259,9 +290,11 @@ export class CarManager {
 function collectTriangles(meshes) {
   const tris = [];
   const cum = [];
+  const parts = [];
   let total = 0;
   for (const mesh of meshes) {
     const pos = mesh.geometry.attributes.position;
+    const partAttr = mesh.geometry.attributes.aPart;
     const index = mesh.geometry.index;
     const count = index ? index.count : pos.count;
     for (let i = 0; i < count; i += 3) {
@@ -273,6 +306,7 @@ function collectTriangles(meshes) {
       const area = _n.crossVectors(_ab, _ac).length() * 0.5;
       if (area < 1e-6) continue;
       tris.push(_a.x, _a.y, _a.z, _b.x, _b.y, _b.z, _c.x, _c.y, _c.z);
+      parts.push(partAttr ? partAttr.getX(index ? index.getX(i) : i) : 0);
       total += area;
       cum.push(total);
     }
@@ -288,11 +322,11 @@ function collectTriangles(meshes) {
     boxes[b + 4] = Math.max(tf[t + 1], tf[t + 4], tf[t + 7]);
     boxes[b + 5] = Math.max(tf[t + 2], tf[t + 5], tf[t + 8]);
   }
-  return { tris: tf, boxes, cum: new Float32Array(cum), total };
+  return { tris: tf, boxes, parts: new Uint8Array(parts), cum: new Float32Array(cum), total };
 }
 
 /** Yüzeyde rastgele nokta (alan ağırlıklı). Sonuç _v (nokta) ve _n (normal) içinde. */
-function randomSurfacePoint({ tris, cum, total }) {
+function randomSurfacePoint({ tris, cum, total, parts }) {
   const r = Math.random() * total;
   let lo = 0, hi = cum.length - 1;
   while (lo < hi) {
@@ -301,6 +335,7 @@ function randomSurfacePoint({ tris, cum, total }) {
     else hi = mid;
   }
   const t = lo * 9;
+  _part = parts ? parts[lo] : 0;
   _a.set(tris[t], tris[t + 1], tris[t + 2]);
   _ab.set(tris[t + 3] - _a.x, tris[t + 4] - _a.y, tris[t + 5] - _a.z);
   _ac.set(tris[t + 6] - _a.x, tris[t + 7] - _a.y, tris[t + 8] - _a.z);
@@ -359,9 +394,10 @@ function surfaceMask(volume, surface) {
   return mask;
 }
 
-/** Oyuncunun erişebileceği yüzey noktaları (ilerleme yüzdesi bunlardan hesaplanır) */
+/** Oyuncunun erişebileceği yüzey noktaları ve parçaları (ilerleme yüzdesi bunlardan hesaplanır) */
 function sampleReachable(surface) {
   const out = [];
+  const outParts = [];
   const attempts = SURFACE_SAMPLES * 1.7;
   for (let s = 0; s < attempts && out.length < SURFACE_SAMPLES * 3; s++) {
     randomSurfacePoint(surface);
@@ -374,6 +410,7 @@ function sampleReachable(surface) {
     const d = firstHit(surface, ox, oy, oz, -_n.x, -_n.y, -_n.z, REACH_OFFSET + 0.1);
     if (REACH_OFFSET - d > 0.05) continue;
     out.push(_v.x, _v.y, _v.z);
+    outParts.push(_part);
   }
-  return new Float32Array(out);
+  return { positions: new Float32Array(out), parts: new Uint8Array(outParts) };
 }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PART } from './CarParts.js';
 
 /**
  * Araç-yerel 3D kir hacmi.
@@ -7,14 +8,15 @@ import * as THREE from 'three';
  * UV'ye değil, aracın yerel uzayındaki bir voxel ızgarasına yazıyoruz. Böylece
  * boyanan nokta sadece o noktanın çevresini etkiler ve sistem her modelle çalışır.
  *
- * Kanallar (RGBA8):
- *   R = çamur   (hortum söker)
- *   G = leke    (sünger siler, köpük hızlandırır)
- *   B = ıslaklık (hortum/köpük ekler, havlu kurutur)
- *   A = köpük   (köpük topu ekler, hortum durular)
+ * Doku 0 (RGBA8):  R = çamur · G = leke · B = ıslaklık · A = köpük
+ * Doku 1 (RGBA8):  R = fren tozu (jant) · G = lastik matlığı · B = cam filmi · A = cila
+ *
+ * Detay katmanları hacmin her yerinde tutulur; hangi parçada geçerli oldukları
+ * shader'da köşe başına `aPart` niteliğiyle (bkz. CarParts.js) belirlenir.
  */
 
 export const CLEAN_THRESHOLD = 38; // 0-255: bu değerin altı "temiz" sayılır
+const POLISHED = 190; // cila bu değerin üstündeyse "parlatıldı"
 
 // ------------------------------------------------------------------ JS gürültü
 function hash3(x, y, z, seed) {
@@ -58,6 +60,18 @@ const smoothstep = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
+function make3DTexture(data, nx, ny, nz) {
+  const t = new THREE.Data3DTexture(data, nx, ny, nz);
+  t.format = THREE.RGBAFormat;
+  t.type = THREE.UnsignedByteType;
+  t.minFilter = THREE.LinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.wrapS = t.wrapT = t.wrapR = THREE.ClampToEdgeWrapping;
+  t.unpackAlignment = 1;
+  t.needsUpdate = true;
+  return t;
+}
+
 // ------------------------------------------------------------------ Hacim
 export class DirtVolume {
   /**
@@ -78,29 +92,30 @@ export class DirtVolume {
     // Izgara tam hücre sayısına otursun diye boyutu yeniden hesapla
     this.size.set(this.nx * voxel, this.ny * voxel, this.nz * voxel);
 
-    this.data = new Uint8Array(this.nx * this.ny * this.nz * 4);
-    this.texture = new THREE.Data3DTexture(this.data, this.nx, this.ny, this.nz);
-    this.texture.format = THREE.RGBAFormat;
-    this.texture.type = THREE.UnsignedByteType;
-    this.texture.minFilter = THREE.LinearFilter;
-    this.texture.magFilter = THREE.LinearFilter;
-    this.texture.wrapS = this.texture.wrapT = this.texture.wrapR = THREE.ClampToEdgeWrapping;
-    this.texture.unpackAlignment = 1;
-    this.texture.needsUpdate = true;
+    const n = this.nx * this.ny * this.nz * 4;
+    this.data = new Uint8Array(n);
+    this.detail = new Uint8Array(n);
+    this.texture = make3DTexture(this.data, this.nx, this.ny, this.nz);
+    this.detailTexture = make3DTexture(this.detail, this.nx, this.ny, this.nz);
 
     this.uniforms = {
       uDirtTex: { value: this.texture },
+      uDetailTex: { value: this.detailTexture },
       uDirtMin: { value: this.min.clone() },
       uDirtSize: { value: this.size.clone() },
       uWorldToCar: { value: new THREE.Matrix4() },
       uTime: { value: 0 },
       uHighlight: { value: 0 },
       uShine: { value: -100 },
+      uReq: { value: new THREE.Vector4() }, // tarayıcının göstereceği detay katmanları (jant, lastik, cam, cila)
     };
 
-    this.dirty = false;
+    this.dirty = false; // doku 0 (çamur/leke/ıslaklık/köpük) değişti
+    this.detailDirty = false; // doku 1 (jant/lastik/cam/cila) değişti
+    this.activeIdx = null; // yüzeye yakın voxeller (kuruma sadece bunlarda hesaplanır)
     this.sampleIdx = null; // yüzey örneklerinin voxel indeksleri
     this.samplePos = null; // yüzey örneklerinin yerel pozisyonları
+    this.sampleParts = null;
   }
 
   index(ix, iy, iz) {
@@ -117,7 +132,7 @@ export class DirtVolume {
 
   /** Başlangıç kirini üret. profile: { mud: 0..1, stain: 0..1 } */
   generate(profile = { mud: 0.5, stain: 0.5 }, mask = null) {
-    const { nx, ny, nz, voxel, min, size, data, seed } = this;
+    const { nx, ny, nz, voxel, min, size, data, detail, seed } = this;
 
     // Gürültü alçak frekanslı: yarım çözünürlükte hesapla, voxellere üç doğrusal enterpole et
     const S = 2;
@@ -151,6 +166,7 @@ export class DirtVolume {
       return ab + (ef - ab) * fz;
     };
 
+    const active = [];
     for (let iz = 0; iz < nz; iz++) {
       const z = min.z + (iz + 0.5) * voxel;
       const zn = (z - min.z) / size.z; // 0 arka, 1 ön
@@ -163,6 +179,7 @@ export class DirtVolume {
           const vi = this.index(ix, iy, iz);
           if (mask && !mask[vi]) continue;
           const i = vi * 4;
+          active.push(i);
           const gx = ix / S;
 
           // Çamur: alt kısımlar, tekerlek çevresi ve arka tampon daha çamurlu
@@ -183,22 +200,30 @@ export class DirtVolume {
           data[i + 1] = stain * 255;
           data[i + 2] = 0;
           data[i + 3] = 0;
+
+          // Detay katmanları: jantta fren tozu, lastikte matlık, camda film
+          detail[i] = clamp01(0.62 + (n2 - 0.5) * 0.8) * 255;
+          detail[i + 1] = clamp01(0.8 + (n1 - 0.5) * 0.5) * 255;
+          detail[i + 2] = clamp01(0.5 + (n3 - 0.5) * 0.9 + (1 - h) * 0.15) * 255;
+          detail[i + 3] = 0;
         }
       }
     }
-    this.dirty = true;
+    this.activeIdx = new Uint32Array(active);
+    this.dirty = this.detailDirty = true;
     this.update();
   }
 
   /**
-   * Küresel yumuşak fırçayla hacmi boya.
-   * brush: { mud, stain, wet, foam, foamBoost } — saniye başına oran (0..1 ölçeğinde).
-   *   mud / stain  > 0 : söker
-   *   wet / foam      : işaretli (+ ekler, - siler)
-   * Dönüş: fırça altındaki ortalama kir değerleri (ipuçları için).
+   * Küresel yumuşak fırçayla hacmi boya. Oranlar saniye başına (0..1 ölçeğinde).
+   *   mud, stain, dust, tire, glass > 0 : söker
+   *   wet, foam                        : işaretli (+ ekler, - siler)
+   *   shine > 0                         : cila ekler (shineNeedsClean ise sadece temiz yüzeye)
+   *   foamBoost                         : köpüklü yüzeyde leke sökme çarpanı
+   * Dönüş: fırça altındaki ortalama değerler (ipuçları için).
    */
   paint(p, radius, brush, dt) {
-    const { voxel, min, nx, ny, nz, data } = this;
+    const { voxel, min, nx, ny, nz, data, detail } = this;
     const r2 = radius * radius;
     const x0 = Math.max(0, Math.floor((p.x - radius - min.x) / voxel));
     const x1 = Math.min(nx - 1, Math.floor((p.x + radius - min.x) / voxel));
@@ -213,9 +238,16 @@ export class DirtVolume {
     const stainK = (brush.stain || 0) * k;
     const wetK = (brush.wet || 0) * k;
     const foamK = (brush.foam || 0) * k;
+    const dustK = (brush.dust || 0) * k;
+    const tireK = (brush.tire || 0) * k;
+    const glassK = (brush.glass || 0) * k;
+    const shineK = (brush.shine || 0) * k;
     const foamBoost = brush.foamBoost || 0;
+    const needsClean = !!brush.shineNeedsClean;
+    const touchDetail = dustK || tireK || glassK || shineK;
 
-    let sumMud = 0, sumStain = 0, sumWet = 0, sumFoam = 0, count = 0;
+    const sum = new Float64Array(8);
+    let count = 0;
 
     // Stokastik yuvarlama: küçük adımlar da zamanla etkili olsun
     const apply = (v, delta) => {
@@ -235,63 +267,95 @@ export class DirtVolume {
           f = f * f * (3 - 2 * f);
           const i = (ix + nx * (iy + ny * iz)) * 4;
 
-          sumMud += data[i]; sumStain += data[i + 1]; sumWet += data[i + 2]; sumFoam += data[i + 3];
+          sum[0] += data[i]; sum[1] += data[i + 1]; sum[2] += data[i + 2]; sum[3] += data[i + 3];
+          sum[4] += detail[i]; sum[5] += detail[i + 1]; sum[6] += detail[i + 2]; sum[7] += detail[i + 3];
           count++;
 
           if (mudK) data[i] = apply(data[i], -mudK * f);
-          if (stainK) {
-            const foam = data[i + 3] / 255;
-            data[i + 1] = apply(data[i + 1], -stainK * f * (1 + foamBoost * foam));
-          }
+          if (stainK) data[i + 1] = apply(data[i + 1], -stainK * f * (1 + foamBoost * (data[i + 3] / 255)));
           if (wetK) data[i + 2] = apply(data[i + 2], wetK * f);
           if (foamK) data[i + 3] = apply(data[i + 3], foamK * f);
+          if (!touchDetail) continue;
+          if (dustK) detail[i] = apply(detail[i], -dustK * f);
+          if (tireK) detail[i + 1] = apply(detail[i + 1], -tireK * f);
+          if (glassK) detail[i + 2] = apply(detail[i + 2], -glassK * f);
+          if (shineK && (!needsClean || (data[i] < CLEAN_THRESHOLD && data[i + 1] < CLEAN_THRESHOLD))) {
+            detail[i + 3] = apply(detail[i + 3], shineK * f);
+          }
         }
       }
     }
     if (!count) return null;
     this.dirty = true;
+    if (touchDetail) this.detailDirty = true;
     const inv = 1 / (count * 255);
-    return { mud: sumMud * inv, stain: sumStain * inv, wet: sumWet * inv, foam: sumFoam * inv };
+    return {
+      mud: sum[0] * inv, stain: sum[1] * inv, wet: sum[2] * inv, foam: sum[3] * inv,
+      dust: sum[4] * inv, tire: sum[5] * inv, glass: sum[6] * inv, shine: sum[7] * inv,
+    };
   }
 
   /** Doğal kuruma / köpüğün yavaşça sönmesi */
   decay(dt, { wet = 0, foam = 0 }) {
-    const { data } = this;
-    const wetK = wet * dt * 255;
-    const foamK = foam * dt * 255;
-    if (Math.random() > 0.25) return; // her karede değil, maliyeti düşür
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 2]) data[i + 2] = Math.max(0, data[i + 2] - wetK * 4 - Math.random()) | 0;
-      if (data[i + 3]) data[i + 3] = Math.max(0, data[i + 3] - foamK * 4 - Math.random()) | 0;
+    // Saniyede 4 kez, sadece yüzeye yakın voxellerde
+    this.decayT = (this.decayT || 0) + dt;
+    if (this.decayT < 0.25) return;
+    const step = this.decayT;
+    this.decayT = 0;
+    const { data, activeIdx } = this;
+    const wetK = wet * step * 255;
+    const foamK = foam * step * 255;
+    let changed = false;
+    for (let n = 0; n < activeIdx.length; n++) {
+      const i = activeIdx[n];
+      if (data[i + 2]) { data[i + 2] = Math.max(0, data[i + 2] - wetK - Math.random()) | 0; changed = true; }
+      if (data[i + 3]) { data[i + 3] = Math.max(0, data[i + 3] - foamK - Math.random()) | 0; changed = true; }
     }
-    this.dirty = true;
+    if (changed) this.dirty = true;
   }
 
-  /** Yüzey örneklerini ata (ilerleme yüzdesi için). positions: Float32Array xyz */
-  setSurfaceSamples(positions) {
+  /** Yüzey örneklerini ata (ilerleme yüzdesi için). positions: xyz, parts: PART değerleri */
+  setSurfaceSamples(positions, parts) {
     const n = positions.length / 3;
     this.samplePos = positions;
+    this.sampleParts = parts;
     this.sampleIdx = new Uint32Array(n);
     for (let s = 0; s < n; s++) {
       this.sampleIdx[s] = this.voxelIndexAt(positions[s * 3], positions[s * 3 + 1], positions[s * 3 + 2]) * 4;
     }
   }
 
-  /** Temizlik istatistikleri: her katman için temiz örneklerin oranı */
+  /** Temizlik istatistikleri: her katman için temiz örneklerin oranı (parçası olmayan katman = 1) */
   stats() {
     const idx = this.sampleIdx;
-    if (!idx || !idx.length) return { mud: 1, stain: 1, dry: 1, foam: 0 };
-    const { data } = this;
+    const out = { mud: 1, stain: 1, dry: 1, foam: 0, rims: 1, tires: 1, glass: 1, polish: 1 };
+    if (!idx || !idx.length) return out;
+    const { data, detail, sampleParts } = this;
     let mud = 0, stain = 0, dry = 0, foam = 0;
+    const cnt = [0, 0, 0, 0], ok = [0, 0, 0, 0]; // jant, lastik, cam, boya(cila)
     for (let s = 0; s < idx.length; s++) {
       const i = idx[s];
       if (data[i] < CLEAN_THRESHOLD) mud++;
       if (data[i + 1] < CLEAN_THRESHOLD) stain++;
       if (data[i + 2] < CLEAN_THRESHOLD * 1.6) dry++;
       if (data[i + 3] > CLEAN_THRESHOLD) foam++;
+      switch (sampleParts[s]) {
+        case PART.RIM: cnt[0]++; if (detail[i] < CLEAN_THRESHOLD) ok[0]++; break;
+        case PART.TIRE: cnt[1]++; if (detail[i + 1] < CLEAN_THRESHOLD) ok[1]++; break;
+        case PART.GLASS: cnt[2]++; if (detail[i + 2] < CLEAN_THRESHOLD) ok[2]++; break;
+        case PART.PAINT: cnt[3]++; if (detail[i + 3] > POLISHED) ok[3]++; break;
+      }
     }
     const n = idx.length;
-    return { mud: mud / n, stain: stain / n, dry: dry / n, foam: foam / n };
+    out.mud = mud / n;
+    out.stain = stain / n;
+    out.dry = dry / n;
+    out.foam = foam / n;
+    out.rims = cnt[0] ? ok[0] / cnt[0] : 1;
+    out.tires = cnt[1] ? ok[1] / cnt[1] : 1;
+    out.glass = cnt[2] ? ok[2] / cnt[2] : 1;
+    out.polish = cnt[3] ? ok[3] / cnt[3] : 1;
+    return out;
   }
 
   /** Islak bir yüzey noktası döndür (damla efekti için) */
@@ -308,10 +372,14 @@ export class DirtVolume {
     return false;
   }
 
-  /** Hepsini temizle (debug) */
-  cleanAll() {
-    for (let i = 0; i < this.data.length; i++) this.data[i] = 0;
-    this.dirty = true;
+  /** Hepsini temizle (debug). polish: cila katmanını da doldur */
+  cleanAll(polish = true) {
+    this.data.fill(0);
+    for (let i = 0; i < this.detail.length; i += 4) {
+      this.detail[i] = this.detail[i + 1] = this.detail[i + 2] = 0;
+      if (polish) this.detail[i + 3] = 255;
+    }
+    this.dirty = this.detailDirty = true;
   }
 
   update() {
@@ -319,10 +387,15 @@ export class DirtVolume {
       this.texture.needsUpdate = true;
       this.dirty = false;
     }
+    if (this.detailDirty) {
+      this.detailTexture.needsUpdate = true;
+      this.detailDirty = false;
+    }
   }
 
   dispose() {
     this.texture.dispose();
+    this.detailTexture.dispose();
   }
 }
 
@@ -330,12 +403,15 @@ export class DirtVolume {
 const DIRT_COMMON = /* glsl */ `
 precision highp sampler3D;
 uniform sampler3D uDirtTex;
+uniform sampler3D uDetailTex;
 uniform vec3 uDirtMin;
 uniform vec3 uDirtSize;
 uniform float uTime;
 uniform float uHighlight;
 uniform float uShine;
+uniform vec4 uReq;
 varying vec3 vCarPos;
+varying float vPart;
 
 float dHash(vec3 p) {
   p = fract(p * 0.3183099 + 0.1);
@@ -351,68 +427,96 @@ float dNoise(vec3 x) {
     mix(mix(dHash(i + vec3(0, 0, 1)), dHash(i + vec3(1, 0, 1)), f.x), mix(dHash(i + vec3(0, 1, 1)), dHash(i + vec3(1, 1, 1)), f.x), f.y),
     f.z);
 }
+// Not: Windows/ANGLE'da derleme süresi için döngüsüz ve kısa tutuldu
 float dFbm(vec3 p) {
-  float a = 0.5, s = 0.0;
-  for (int i = 0; i < 4; i++) { s += a * dNoise(p); p *= 2.03; a *= 0.5; }
-  return s;
+  return dNoise(p) * 0.57 + dNoise(p * 2.03 + 7.1) * 0.29 + dNoise(p * 4.1 + 3.3) * 0.14;
 }
-// Hücresel damlacık deseni
+// Tek hücreli damlacık deseni (her hücrede en fazla bir damla)
 float dDrops(vec3 p) {
   vec3 i = floor(p);
-  vec3 f = fract(p);
-  float d = 1.0;
-  for (int z = -1; z <= 1; z++)
-  for (int y = -1; y <= 1; y++)
-  for (int x = -1; x <= 1; x++) {
-    vec3 o = vec3(float(x), float(y), float(z));
-    vec3 r = o + vec3(dHash(i + o), dHash(i + o + 3.1), dHash(i + o + 7.7)) - f;
-    float size = 0.25 + 0.45 * dHash(i + o + 1.3);
-    d = min(d, length(r) / size);
-  }
-  return 1.0 - smoothstep(0.4, 0.62, d);
+  vec3 f = fract(p) - 0.5 - (vec3(dHash(i), dHash(i + 3.1), dHash(i + 7.7)) - 0.5) * 0.5;
+  float size = 0.18 + 0.2 * dHash(i + 1.3);
+  return (1.0 - smoothstep(0.7, 1.0, length(f) / size)) * step(0.35, dHash(i + 5.9));
 }
 `;
 
+const PART_DEFINES = Object.entries(PART).map(([k, v]) => `#define PART_${k} ${v}.0`).join('\n');
+
 /**
- * Mevcut bir MeshStandard/MeshPhysical malzemesine kir katmanlarını enjekte eder.
+ * Mevcut bir MeshStandard/MeshPhysical malzemesine kir ve bakım katmanlarını enjekte eder.
  * Aracın orijinal PBR görünümü "temiz" hal olarak korunur.
+ * tuneParts: modelin kendi PBR ayarı zayıfsa (atlas renkli low-poly) parçalara göre
+ * gerçekçi boya/cam/lastik/jant yüzeyi uygula.
  */
-export function applyDirtShader(material, uniforms) {
+export function applyDirtShader(material, uniforms, { tuneParts = false } = {}) {
   material.userData.dirtUniforms = uniforms;
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
+    if (tuneParts) shader.defines = { ...(shader.defines || {}), TUNE_PARTS: '' };
 
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
         `#include <common>
 uniform mat4 uWorldToCar;
-varying vec3 vCarPos;`,
+attribute float aPart;
+varying vec3 vCarPos;
+varying float vPart;`,
       )
       .replace(
         '#include <project_vertex>',
         `#include <project_vertex>
-vCarPos = (uWorldToCar * modelMatrix * vec4(transformed, 1.0)).xyz;`,
+vCarPos = (uWorldToCar * modelMatrix * vec4(transformed, 1.0)).xyz;
+vPart = aPart;`,
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\n${DIRT_COMMON}`)
+      .replace('#include <common>', `#include <common>\n${PART_DEFINES}\n${DIRT_COMMON}`)
       .replace(
         '#include <color_fragment>',
         /* glsl */ `#include <color_fragment>
-vec4 dirt = texture(uDirtTex, (vCarPos - uDirtMin) / uDirtSize);
+vec3 dUVW = (vCarPos - uDirtMin) / uDirtSize;
+vec4 dirt = texture(uDirtTex, dUVW);
+vec4 det = texture(uDetailTex, dUVW);
+float pPaint = 1.0 - step(0.5, vPart);
+float pGlass = step(0.5, vPart) * (1.0 - step(1.5, vPart));
+float pTire = step(1.5, vPart) * (1.0 - step(2.5, vPart));
+float pRim = step(2.5, vPart) * (1.0 - step(3.5, vPart));
+
 float dN = dFbm(vCarPos * 7.0);
 float dN2 = dNoise(vCarPos * 31.0);
 float mudM = smoothstep(0.30, 0.60, dirt.r + (dN - 0.5) * 0.55 + (dN2 - 0.5) * 0.12);
 float stainM = smoothstep(0.14, 0.55, dirt.g + (dN - 0.5) * 0.35 + (dN2 - 0.5) * 0.2);
 float foamM = smoothstep(0.12, 0.42, dirt.a + (dNoise(vCarPos * 55.0) - 0.5) * 0.3);
 float wetM = clamp(dirt.b * 1.3, 0.0, 1.0) * (1.0 - mudM);
-float dropM = dDrops(vCarPos * 24.0 + 1.7) * smoothstep(0.2, 0.6, dirt.b) * step(0.35, dHash(floor(vCarPos * 24.0 + 1.7)));
+float dropM = dDrops(vCarPos * 24.0 + 1.7) * smoothstep(0.2, 0.6, dirt.b);
+
+#ifdef TUNE_PARTS
+// Atlas renkli modellerde cam koyu ve yansıtıcı, lastik derin siyah olsun
+diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.22 + vec3(0.01, 0.014, 0.02), pGlass);
+diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, pTire);
+#endif
+
+// Jant: fren tozu (kahverengi-gri, mat)
+float dustM = pRim * smoothstep(0.14, 0.5, det.r + (dN - 0.5) * 0.4);
+diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.15, 0.11, 0.08), vec3(0.32, 0.26, 0.2), dN2), dustM * 0.92);
+// Lastik: soluk gri-kahve ↔ parlatılmış derin siyah
+float tireDull = pTire * smoothstep(0.1, 0.5, det.g);
+float tireGloss = pTire * (1.0 - smoothstep(0.1, 0.5, det.g));
+diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, vec3(0.34, 0.31, 0.28), 0.6), tireDull);
+diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.45, tireGloss);
+// Cam: puslu film ve kireç lekeleri
+float glassM = pGlass * smoothstep(0.12, 0.5, det.b + (dN2 - 0.5) * 0.3);
+float glassSpots = smoothstep(0.58, 0.7, dNoise(vCarPos * 16.0 + 2.0));
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.46, 0.48, 0.46) * (0.75 + 0.35 * glassSpots), glassM * 0.55);
+// Cila: boyada daha derin, doygun renk
+float shineM = pPaint * det.a;
+diffuseColor.rgb = mix(diffuseColor.rgb, pow(diffuseColor.rgb, vec3(1.12)) * 1.05, shineM);
 
 // Leke: toz filmi + aşağı akan kir izleri + su lekeleri
-float streak = dFbm(vCarPos * vec3(7.0, 0.9, 7.0) + 5.0);
-float grime = dFbm(vCarPos * vec3(5.0, 2.5, 5.0));
-float spots = smoothstep(0.66, 0.74, dFbm(vCarPos * 20.0 + 9.0));
+float streak = dNoise(vCarPos * vec3(7.0, 0.9, 7.0) + 5.0);
+float grime = dNoise(vCarPos * vec3(5.0, 2.5, 5.0));
+float spots = smoothstep(0.7, 0.78, dNoise(vCarPos * 20.0 + 9.0));
 vec3 stainCol = mix(vec3(0.30, 0.27, 0.20), vec3(0.55, 0.50, 0.40), grime);
 stainCol = mix(stainCol, vec3(0.22, 0.19, 0.14), smoothstep(0.55, 0.8, streak) * 0.8);
 stainCol = mix(stainCol, vec3(0.70, 0.67, 0.60), spots * 0.6);
@@ -430,7 +534,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, mudCol, mudM);
 diffuseColor.rgb *= 1.0 - wetM * 0.25 - dropM * 0.1;
 
 // Köpük: beyaz, kabarcıklı
-float bubbles = dNoise(vCarPos * 90.0) * 0.6 + dNoise(vCarPos * 40.0) * 0.4;
+float bubbles = dNoise(vCarPos * 70.0);
 vec3 foamCol = vec3(0.94, 0.96, 1.0) * (0.82 + 0.18 * bubbles);
 diffuseColor.rgb = mix(diffuseColor.rgb, foamCol, foamM);
 `,
@@ -438,6 +542,16 @@ diffuseColor.rgb = mix(diffuseColor.rgb, foamCol, foamM);
       .replace(
         '#include <roughnessmap_fragment>',
         /* glsl */ `#include <roughnessmap_fragment>
+#ifdef TUNE_PARTS
+roughnessFactor = mix(roughnessFactor, 0.3, pPaint);
+roughnessFactor = mix(roughnessFactor, 0.03, pGlass);
+roughnessFactor = mix(roughnessFactor, 0.86, pTire);
+roughnessFactor = mix(roughnessFactor, 0.2, pRim);
+#endif
+roughnessFactor = mix(roughnessFactor, 0.9, dustM);
+roughnessFactor = mix(roughnessFactor, 0.26, tireGloss);
+roughnessFactor = mix(roughnessFactor, 0.55, glassM);
+roughnessFactor *= 1.0 - shineM * 0.65;
 roughnessFactor = mix(roughnessFactor, max(roughnessFactor, 0.78), stainM * 0.85);
 roughnessFactor = mix(roughnessFactor, 0.97, mudM);
 roughnessFactor = mix(roughnessFactor, 0.05, max(wetM * 0.55, dropM) * (1.0 - foamM));
@@ -447,29 +561,44 @@ roughnessFactor = mix(roughnessFactor, 0.62, foamM);
       .replace(
         '#include <metalnessmap_fragment>',
         /* glsl */ `#include <metalnessmap_fragment>
-metalnessFactor *= 1.0 - max(mudM, foamM);
+#ifdef TUNE_PARTS
+metalnessFactor = mix(metalnessFactor, 0.45, pPaint);
+metalnessFactor = mix(metalnessFactor, 0.0, clamp(pGlass + pTire, 0.0, 1.0));
+metalnessFactor = mix(metalnessFactor, 0.95, pRim);
+#endif
+metalnessFactor *= 1.0 - max(max(mudM, foamM), dustM * 0.8);
 `,
       )
       .replace(
         '#include <emissivemap_fragment>',
         /* glsl */ `#include <emissivemap_fragment>
 float remain = max(step(0.12, dirt.r), step(0.12, dirt.g));
+remain = max(remain, uReq.x * pRim * step(0.15, det.r));
+remain = max(remain, uReq.y * pTire * step(0.15, det.g));
+remain = max(remain, uReq.z * pGlass * step(0.15, det.b));
+float needPolish = uReq.w * pPaint * (1.0 - step(0.75, det.a)) * (1.0 - remain);
 float pulse = 0.55 + 0.45 * sin(uTime * 7.0);
-vec3 hl = remain * vec3(1.0, 0.42, 0.05) + step(0.18, dirt.b) * (1.0 - remain) * vec3(0.1, 0.55, 1.0);
+vec3 hl = remain * vec3(1.0, 0.42, 0.05) + needPolish * vec3(1.0, 0.8, 0.15)
+        + step(0.18, dirt.b) * (1.0 - remain) * (1.0 - needPolish) * vec3(0.1, 0.55, 1.0);
 totalEmissiveRadiance += uHighlight * hl * pulse * 0.9;
 totalEmissiveRadiance += dropM * (1.0 - foamM) * vec3(0.022, 0.026, 0.03);
+// Cilalı boyada metalik pul parıltısı
+float flake = step(0.9975, dHash(floor(vCarPos * 300.0)));
+totalEmissiveRadiance += flake * shineM * (1.0 - mudM) * (1.0 - stainM) * vec3(0.05, 0.048, 0.045);
 float band = exp(-pow((vCarPos.z * 0.9 + vCarPos.y * 0.5 - uShine) * 2.6, 2.0));
 totalEmissiveRadiance += band * vec3(1.0, 0.97, 0.9) * 1.4;
 `,
       );
 
-    // Clearcoat: temiz boya parlasın, kir matlaştırsın
+    // Clearcoat: temiz boya parlasın, kir matlaştırsın, cila aynaya çevirsin
     if (shader.fragmentShader.includes('#include <lights_physical_fragment>')) {
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <lights_physical_fragment>',
         /* glsl */ `#include <lights_physical_fragment>
 #ifdef USE_CLEARCOAT
   material.clearcoat *= 1.0 - max(max(mudM, stainM * 0.85), foamM);
+  material.clearcoat = mix(material.clearcoat, 1.0, shineM * (1.0 - mudM) * (1.0 - stainM));
+  material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.0, shineM);
   material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.02, dropM);
 #endif
 `,
@@ -478,6 +607,6 @@ totalEmissiveRadiance += band * vec3(1.0, 0.97, 0.9) * 1.4;
 
     material.userData.shader = shader;
   };
-  material.customProgramCacheKey = () => 'dirt-v1-' + material.type;
+  material.customProgramCacheKey = () => `dirt-v3-${material.type}-${tuneParts ? 1 : 0}`;
   material.needsUpdate = true;
 }

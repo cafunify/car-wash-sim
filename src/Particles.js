@@ -236,13 +236,31 @@ export class Effects {
     }
   }
 
-  /** Sünger/havlu kullanırken çıkan köpük kabarcıkları */
-  bubbles(point, normal, amount = 1) {
+  /** Sünger/fırça kullanırken çıkan köpük kabarcıkları */
+  bubbles(point, normal, amount = 1, color = [1, 1, 1]) {
     if (Math.random() > 0.35 * amount) return;
     this._v.copy(normal).multiplyScalar(0.4).add(this._t.set(Math.random() - 0.5, Math.random() * 0.6, Math.random() - 0.5));
     this.foam.emit(point, this._v, {
-      life: 0.5 + Math.random() * 0.5, size: 0.025 + Math.random() * 0.03, color: [1, 1, 1], alpha: 0.85, gravity: -0.3, drag: 2,
+      life: 0.5 + Math.random() * 0.5, size: 0.025 + Math.random() * 0.03, color, alpha: 0.85, gravity: -0.3, drag: 2,
     });
+  }
+
+  /** Cam temizleyici sprey sisi */
+  sprayMist(from, dir, hit, dt) {
+    const count = Math.ceil(dt * 160);
+    const speed = 5;
+    const dist = hit ? from.distanceTo(hit.point) : 1.5;
+    for (let i = 0; i < count; i++) {
+      const spread = 0.22;
+      this._v.set(
+        dir.x + (Math.random() - 0.5) * spread,
+        dir.y + (Math.random() - 0.5) * spread,
+        dir.z + (Math.random() - 0.5) * spread,
+      ).normalize().multiplyScalar(speed * (0.8 + Math.random() * 0.4));
+      this.water.emit(from, this._v, {
+        life: Math.min(0.6, dist / speed + 0.05), size: 0.008 + Math.random() * 0.01, color: [0.7, 0.9, 1.0], alpha: 0.3, gravity: 0.5, drag: 1.5, grow: 1.2,
+      });
+    }
   }
 
   /** Islak araçtan düşen damlalar */

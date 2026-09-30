@@ -23,11 +23,7 @@
         <span id="progress-pct">0%</span>
       </div>
       <div class="progress-bar"><div id="progress-fill"></div></div>
-      <div class="layers">
-        <div class="layer" data-layer="mud"><i></i><span>Çamur</span><b>0%</b></div>
-        <div class="layer" data-layer="stain"><i></i><span>Leke</span><b>0%</b></div>
-        <div class="layer" data-layer="dry"><i></i><span>Kuruluk</span><b>0%</b></div>
-      </div>
+      <div class="layers" id="layers"></div>
     </div>
 
     <!-- Sol üst: müşteri -->
@@ -36,6 +32,7 @@
         <span class="dot"></span>
         <span id="customer-name">Müşteri bekleniyor…</span>
       </div>
+      <div id="customer-pkg" class="pkg-badge hidden"></div>
       <div class="customer-row">
         <span>Ücret</span><b id="customer-pay">—</b>
       </div>
@@ -52,15 +49,18 @@
     </div>
     <div id="money-sub">Yıkanan: <b id="washed-count">0</b></div>
 
-    <!-- Alt orta: araç çubuğu -->
-    <div id="toolbar"></div>
+    <!-- Alt orta: elindeki alet -->
+    <div id="held-tool"></div>
     <div id="tool-hint"></div>
+    <div id="prompt"></div>
 
     <!-- Sol alt: kısayollar -->
     <div id="keys-help">
       <div class="free-only"><kbd>Sağ Tık</kbd> Sürükle: bak</div>
       <div class="free-only"><kbd>Esc</kbd> Duraklat</div>
-      <div><kbd>E</kbd>/<kbd>Tab</kbd> Mağaza</div>
+      <div><kbd>E</kbd> Raftan al / bırak</div>
+      <div><kbd>Q</kbd> Aleti rafa bırak</div>
+      <div><kbd>Tab</kbd> Mağaza</div>
       <div><kbd>F</kbd> Kir tarayıcı</div>
       <div><kbd>M</kbd> Ses</div>
     </div>
@@ -82,15 +82,15 @@
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Hareket</div>
         <div><kbd>Shift</kbd> Koş</div>
         <div><kbd>Fare</kbd> Etrafa bak</div>
-        <div><kbd>Sol Tık</kbd> Aracı kullan</div>
-        <div><kbd>1</kbd> Basınçlı Hortum — çamur</div>
-        <div><kbd>2</kbd> Köpük Topu — şampuan</div>
-        <div><kbd>3</kbd> Sünger — lekeler</div>
-        <div><kbd>4</kbd> Havlu — kurutma</div>
-        <div><kbd>E</kbd>/<kbd>Tab</kbd> Mağaza</div>
+        <div><kbd>Sol Tık</kbd> Aleti kullan</div>
+        <div><kbd>E</kbd> Raftan alet al / bırak</div>
+        <div><kbd>Q</kbd> Elindekini rafa bırak</div>
+        <div><kbd>Tab</kbd> Mağaza (ya da rafın yanındaki ekran)</div>
         <div><kbd>F</kbd> Kalan kiri göster</div>
       </div>
-      <p class="tip">İpucu: Sünger ve havluyu kullanırken fareyi hareket ettir — ovalamak daha hızlı temizler!</p>
+      <p class="tip">Aletler aracın yanındaki rafta. Hortumla çamuru sök, köpükle, süngerle ovala, havluyla kurula.
+        Müşteri Detaylı ya da Premium paket isterse jant, lastik, cam ve cila da gerekir.</p>
+      <p class="credits">Araç modelleri: Daniel Zhabotinsky — CC BY 4.0 (Sketchfab)</p>
     </div>
   </div>
 
@@ -107,7 +107,7 @@
       <div id="shop-items"></div>
       <div class="shop-footer">
         <button id="reset-btn" class="btn-ghost">İlerlemeyi sıfırla</button>
-        <button id="shop-close" class="btn-primary">Devam et <kbd>E</kbd></button>
+        <button id="shop-close" class="btn-primary">Devam et <kbd>Tab</kbd></button>
       </div>
     </div>
   </div>
