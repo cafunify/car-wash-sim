@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 
-const NX = 9; // bez ızgarası (genişlik yönünde köşe sayısı)
-const NY = 7;
+const NX = 11; // bez ızgarası (genişlik yönünde köşe sayısı)
+const NY = 8;
 const W = 0.5; // metre
 const H = 0.36;
 const LIFT = 0.25; // ışının yüzeyden ne kadar dışarıdan başlayacağı
-const GAP = 0.006; // bezin boyadan uzaklığı (z-fighting olmasın)
+const GAP = 0.011; // bezin boyadan uzaklığı (kavisli yüzeyde bile içeri girmesin)
 
 const _o = new THREE.Vector3();
 const _d = new THREE.Vector3();
@@ -51,6 +51,8 @@ export class ClothTowel {
     geo.attributes.position.setUsage(THREE.DynamicDrawUsage);
     this.mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
       map: microfiberTexture(), roughness: 1, metalness: 0, side: THREE.DoubleSide,
+      // Derinlik ofseti: bez her zaman kaportanın bir tık önünde çizilir
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -6,
     }));
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = true;
@@ -86,10 +88,9 @@ export class ClothTowel {
       if (t < LIFT * 2.4) {
         _p.copy(_o).addScaledVector(_d, t - GAP);
       } else {
-        // Yüzeyin dışına taşan kenar: yerçekimiyle sarkar ve hafif dalgalanır
+        // Yüzeyin dışına taşan kenar: aracın içine sarkmaz, teğet düzlemde kalıp hafifçe dışa kıvrılır
         const edge = Math.hypot(lu / W, lv / H);
-        _p.addScaledVector(UP, -0.12 * edge - 0.02).addScaledVector(n, -0.02);
-        _p.y += Math.sin(time * 3 + lu * 20) * 0.004;
+        _p.addScaledVector(n, GAP + 0.02 * edge + Math.sin(time * 3 + lu * 20) * 0.003);
       }
       pos.setXYZ(k, _p.x, _p.y, _p.z);
     }

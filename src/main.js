@@ -14,6 +14,7 @@ import { EconomyManager, SHOP_LEVEL_NAMES } from './EconomyManager.js';
 import { HUD } from './HUD.js';
 import { AudioManager } from './Audio.js';
 import { ToolRack } from './ToolRack.js';
+import { Minimap } from './Minimap.js';
 import { PACKAGES, STEPS, pickPackage, packageProgress } from './Packages.js';
 
 const EYE_HEIGHT = 1.68;
@@ -22,6 +23,13 @@ const WALK_SPEED = 3.3;
 const RUN_SPEED = 5.6;
 const PLAYER_RADIUS = 0.32;
 
+
+/** Grafik kalitesi ön ayarları */
+const QUALITY = {
+  low: { pixelRatio: 0.7, shadows: 0, bloom: false, reflections: false, particles: 0.4, note: 'Gölge, parlama ve yansıma kapalı, düşük çözünürlük — zayıf ekran kartları için' },
+  medium: { pixelRatio: 1, shadows: 1024, bloom: true, reflections: false, particles: 0.7, note: 'Dengeli: gölge ve parlama açık, yansıtıcı zemin kapalı' },
+  high: { pixelRatio: Math.min(window.devicePixelRatio, 1.75), shadows: 2048, bloom: true, reflections: true, particles: 1, note: 'Tüm efektler açık — güçlü ekran kartları için' },
+};
 
 class Game {
   constructor() {
@@ -52,6 +60,7 @@ class Game {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.info.autoReset = false; // efekt geçişleri dahil kare başına toplam çizim sayısı
     document.getElementById('app').appendChild(renderer.domElement);
 
     const scene = (this.scene = new THREE.Scene());
@@ -76,6 +85,9 @@ class Game {
 
     // ------------------------------------------------ sistemler
     this.hud = new HUD();
+    this.minimap = new Minimap();
+    this.fpsFrames = 0;
+    this.fpsTime = 0;
     this.audio = new AudioManager();
     this.env = new Environment(scene, renderer);
     this.effects = new Effects(scene);
@@ -103,6 +115,7 @@ class Game {
     this.hud.setHeldTool(TOOL_DEFS[this.tools.index]);
     this.audio.musicOn = this.economy.state.settings.music;
     this.applyCosmetics();
+    this.applySettings();
     this.knownPackages = new Set(this.economy.packages.map((p) => p.id));
 
     this.applyLevel(this.economy.shopLevel);
@@ -112,6 +125,7 @@ class Game {
     this.hud.message('Müşteri geliyor…<br><small>Su ve köpük tabancası belinde (1/2) · diğer aletler sağdaki rafta</small>', 4);
 
     this.bindInput();
+    this.bindSettings();
     document.getElementById('loading').classList.add('hidden');
     renderer.setAnimationLoop(() => this.frame());
     this.exposeDebug();
@@ -143,16 +157,138 @@ class Game {
     this.hud.message(`<b>${car.customer}</b> ${car.def.name} ile geldi!<br><small>${car.package.name}: ${steps}</small>`, 4.5);
   }
 
-  onCarWashed() {
+  /** Aracı teslim et. progress < 1 ise erken teslim: eksik her %1 için 2$ kesilir */
+  onCarWashed(progress = 1) {
     const car = this.cars.car;
-    const res = this.economy.payout();
-    this.cars.complete();
-    this.audio.complete();
-    const box = this.cars.worldBox(new THREE.Box3());
-    if (box) this.effects.sparkleBurst(box);
-    if (res) this.hud.toast(`+$${res.total}`, `${car.package.name}${res.tip > 0 ? ` · bahşiş +$${res.tip} ⏱` : ` · ${car.customer} memnun!`}`);
-    this.hud.setProgress(1, Object.fromEntries(car.package.steps.map((l) => [l, 1])), null, true);
+    const res = this.economy.payout(progress);
+    this.deliverArmed = 0;
     this.rack.setHighlight(null);
+    if (res?.complete) {
+      this.cars.complete(true);
+      this.audio.complete();
+      const box = this.cars.worldBox(new THREE.Box3());
+      if (box) this.effects.sparkleBurst(box);
+      this.hud.toast(`+$${res.total}`, `${car.package.name}${res.tip > 0 ? ` · bahşiş +$${res.tip} ⏱` : ` · ${car.customer} memnun!`}`);
+      this.hud.setProgress(1, Object.fromEntries(car.package.steps.map((l) => [l, 1])), null, true);
+    } else if (res) {
+      this.cars.complete(false);
+      this.hud.toast(`+$${res.total}`, `Erken teslim · %${100 - res.missing} temiz · kesinti -$${res.penalty}`, 'warn');
+      this.hud.setStepHint(`${car.customer} aracını eksik temizlikle teslim aldı`);
+    }
+  }
+
+  /** T: erken teslim (ilk basışta ücret önizlemesi, ikinci basışta onay) */
+  deliver() {
+    if (!this.cars.isWashable) return this.hud.hint('Teslim edilecek araç yok', 1.5);
+    const progress = this.lastStats?.total ?? 0;
+    if (progress >= 0.999) return this.onCarWashed(1);
+    const q = this.economy.quote(progress);
+    if (this.deliverArmed && this.time - this.deliverArmed < 3.5) return this.onCarWashed(progress);
+    this.deliverArmed = this.time;
+    this.hud.message(
+      `Aracı şimdi teslim et? <b>%${100 - q.missing}</b> temiz<br><small>Eksik %${q.missing} × $2 = <b>-$${q.penalty}</b> kesinti · ödeme <b>$${q.total}</b> · bahşiş yok — onay için tekrar <kbd>T</kbd></small>`,
+      3.5,
+    );
+  }
+
+  // ---------------------------------------------------------------- ayarlar
+  applySettings() {
+    const st = this.economy.state.settings;
+    this.audio.setVolumes({ music: st.musicVol / 100, sfx: st.sfxVol / 100 });
+    this.controls.pointerSpeed = st.sens / 100;
+    this.lookSpeed = 0.0035 * (st.sens / 100);
+    this.applyQuality(st.quality);
+    document.getElementById('fps').classList.toggle('hidden', !st.fps);
+    this.minimap.setVisible(st.minimap);
+  }
+
+  applyQuality(q) {
+    const cfg = QUALITY[q] || QUALITY.medium;
+    if (this.quality === q) return;
+    this.quality = q;
+    const r = this.renderer;
+    r.setPixelRatio(cfg.pixelRatio);
+    this.composer.setPixelRatio(cfg.pixelRatio);
+    r.setSize(window.innerWidth, window.innerHeight);
+    this.composer.setSize(window.innerWidth, window.innerHeight);
+    const shadowsOn = cfg.shadows > 0;
+    if (r.shadowMap.enabled !== shadowsOn) {
+      r.shadowMap.enabled = shadowsOn;
+      // Gölge açılıp kapanınca malzemelerin yeniden derlenmesi gerekir
+      this.scene.traverse((o) => {
+        if (!o.material) return;
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => (m.needsUpdate = true));
+      });
+    }
+    this.env.setShadows(cfg.shadows);
+    this.env.setReflections(cfg.reflections);
+    this.bloom.enabled = cfg.bloom;
+    this.effects.density = cfg.particles;
+    this.effects.resize(window.innerHeight * cfg.pixelRatio / Math.min(window.devicePixelRatio, 1.75));
+  }
+
+  bindSettings() {
+    const $ = (id) => document.getElementById(id);
+    const panel = $('settings');
+    const st = this.economy.state.settings;
+    const sliders = [['set-music', 'musicVol', '%'], ['set-sfx', 'sfxVol', '%'], ['set-sens', 'sens', '%']];
+    const refresh = () => {
+      for (const [id, key, unit] of sliders) {
+        $(id).value = st[key];
+        $(`${id}-v`).textContent = `${st[key]}${unit}`;
+      }
+      for (const b of $('set-quality').children) b.classList.toggle('on', b.dataset.q === st.quality);
+      $('set-quality-note').textContent = QUALITY[st.quality].note;
+      $('set-fps').checked = st.fps;
+      $('set-minimap').checked = st.minimap;
+    };
+    const commit = () => {
+      this.economy.save();
+      this.applySettings();
+      refresh();
+    };
+    for (const [id, key] of sliders) {
+      $(id).addEventListener('input', (e) => {
+        st[key] = Number(e.target.value);
+        commit();
+      });
+    }
+    $('set-quality').addEventListener('click', (e) => {
+      const q = e.target.closest('button')?.dataset.q;
+      if (!q) return;
+      st.quality = q;
+      commit();
+      this.audio.click();
+    });
+    $('set-fps').addEventListener('change', (e) => { st.fps = e.target.checked; commit(); });
+    $('set-minimap').addEventListener('change', (e) => { st.minimap = e.target.checked; commit(); });
+    document.querySelectorAll('.open-settings').forEach((b) => b.addEventListener('click', () => {
+      refresh();
+      panel.classList.remove('hidden');
+      this.audio.init();
+    }));
+    $('settings-close').addEventListener('click', () => panel.classList.add('hidden'));
+    refresh();
+  }
+
+  toggleFps() {
+    const st = this.economy.state.settings;
+    st.fps = !st.fps;
+    this.economy.save();
+    this.applySettings();
+  }
+
+  updateFps(dt) {
+    this.fpsFrames++;
+    this.fpsTime += dt;
+    if (this.fpsTime < 0.5) return;
+    const fps = this.fpsFrames / this.fpsTime;
+    this.fpsFrames = 0;
+    this.fpsTime = 0;
+    if (!this.economy.state.settings.fps) return;
+    const info = this.renderer.info.render;
+    document.getElementById('fps').textContent =
+      `${Math.round(fps)} FPS · ${(1000 / fps).toFixed(1)} ms\n${info.calls} çizim · ${(info.triangles / 1000).toFixed(0)}k üçgen · ${this.quality}`;
   }
 
   onUpgrade(id, level) {
@@ -258,6 +394,8 @@ class Game {
         if (this.tools.putDown()) this.hud.hint('Alet rafa bırakıldı', 1.2);
         else this.hud.hint('Tabancalar belinde — 1: Su · 2: Köpük', 1.8);
       }
+      if (e.code === 'KeyT') this.deliver();
+      if (e.code === 'KeyP') this.toggleFps();
       if (e.code === 'Digit1') this.tools.selectGun(0);
       if (e.code === 'Digit2') this.tools.selectGun(1);
       if (e.code === 'KeyN') {
@@ -302,8 +440,8 @@ class Game {
       if (this.looking) {
         const q = this.camera.quaternion;
         this.lookEuler.setFromQuaternion(q);
-        this.lookEuler.y -= e.movementX * 0.0035;
-        this.lookEuler.x = THREE.MathUtils.clamp(this.lookEuler.x - e.movementY * 0.0035, -1.5, 1.5);
+        this.lookEuler.y -= e.movementX * this.lookSpeed;
+        this.lookEuler.x = THREE.MathUtils.clamp(this.lookEuler.x - e.movementY * this.lookSpeed, -1.5, 1.5);
         q.setFromEuler(this.lookEuler);
       }
     });
@@ -314,7 +452,7 @@ class Game {
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(w, h);
       this.composer.setSize(w, h);
-      this.effects.resize(h);
+      this.effects.resize(h * (QUALITY[this.quality]?.pixelRatio ?? 1) / Math.min(window.devicePixelRatio, 1.75));
     });
   }
 
@@ -493,6 +631,7 @@ class Game {
   // ---------------------------------------------------------------- döngü
   frame() {
     this.timer.update();
+    this.renderer.info.reset();
     const dt = Math.min(this.timer.getDelta(), 1 / 20);
     this.time += dt;
 
@@ -538,6 +677,11 @@ class Game {
     this.effects.update(dt);
     this.env.update(this.time);
     this.hud.update(dt);
+    this.updateFps(dt);
+    this._yaw = this._yaw || new THREE.Euler(0, 0, 0, 'YXZ');
+    this._yaw.setFromQuaternion(this.camera.quaternion);
+    this.minimap.update(dt, this.cars.isWashable ? this.cars.car : null,
+      { x: this.camera.position.x, z: this.camera.position.z, yaw: this._yaw.y });
     this.composer.render();
   }
 

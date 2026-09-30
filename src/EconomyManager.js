@@ -128,7 +128,7 @@ export class EconomyManager {
     return {
       money: START_MONEY, washed: 0, totalEarned: 0,
       levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, pinkfoam: 0, shop: 0 },
-      settings: { pinkfoam: true, music: true },
+      settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', fps: false, minimap: true },
     };
   }
 
@@ -213,19 +213,28 @@ export class EconomyManager {
     this.hud.setTimer(left, left / this.customer.target);
   }
 
-  /** Araç bitti: ödeme yap. Dönüş: { total, tip } */
-  payout() {
+  /** Teslim edilince alınacak ücret. progress: 0..1 temizlik oranı */
+  quote(progress = 1) {
     const c = this.customer;
     if (!c) return null;
+    const complete = progress >= 0.999;
     const base = c.car.def.pay * (c.car.package?.mult || 1);
-    const timeFrac = Math.max(0, 1 - c.elapsed / c.target);
+    // Bahşiş sadece eksiksiz teslimde ve süre dolmadan
+    const timeFrac = complete ? Math.max(0, 1 - c.elapsed / c.target) : 0;
     const tip = base * 0.35 * timeFrac;
-    const mult = this.multiplier;
-    const total = Math.round((base + tip) * mult);
-    const tipShown = Math.round(tip * mult);
+    const full = Math.round((base + tip) * this.multiplier);
+    // Eksik kalan her %1 için 2 dolar kesinti
+    const missing = complete ? 0 : Math.ceil((1 - progress) * 100);
+    const penalty = missing * 2;
+    return { total: Math.max(0, full - penalty), tip: Math.round(tip * this.multiplier), missing, penalty, complete };
+  }
 
-    this.state.money += total;
-    this.state.totalEarned += total;
+  /** Aracı teslim et ve ödemeyi al. Dönüş: quote() */
+  payout(progress = 1) {
+    const q = this.quote(progress);
+    if (!q) return null;
+    this.state.money += q.total;
+    this.state.totalEarned += q.total;
     this.state.washed += 1;
     this.save();
     this.customer = null;
@@ -233,8 +242,9 @@ export class EconomyManager {
     this.hud.setMoney(this.state.money, true);
     this.hud.setWashed(this.state.washed);
     this.hud.clearCustomer();
-    this.audio.cash();
-    return { total, tip: tipShown };
+    if (q.complete) this.audio.cash();
+    else this.audio.tone(660, { dur: 0.5, vol: 0.035 });
+    return q;
   }
 
   addMoney(n) {

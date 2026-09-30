@@ -28,9 +28,11 @@ Tarayıcıda `http://localhost:5173` adresini aç. Fare kilidi (Pointer Lock) de
 | 1 / 2 | Beldeki su / köpük tabancası |
 | E | Rafa bakarken: alet al / bırak · ekrana bakarken: mağaza |
 | Q | Raf aletini bırak, tabancaya dön |
+| T | Erken teslim (ilk basış ücret önizlemesi, ikinci basış onay) |
 | Tab | Mağaza |
 | F | Kir tarayıcı (kalan kir turuncu, cila gereken boya sarı, ıslaklık mavi) |
-| M / N | Tüm sesler / fon müziği |
+| M / N / P | Tüm sesler / fon müziği / FPS göstergesi |
+| Esc | Menü (Ayarlar: müzik ve efekt sesi, fare hassasiyeti, grafik kalitesi, FPS, eksik yer haritası) |
 
 ## Oynanış
 
@@ -48,7 +50,11 @@ Oyuncu **su ve köpük tabancası belinde** başlar. Diğer aletler aracın sağ
 - Durulamadan sonraki **su lekeleri** kendiliğinden kurumaz; havlu araca serilir ve kaportanın kıvrımlarını takip eder.
 - **Jant temizleyici** (tozla temas edince morarır), **lastik parlatıcı**, **cam temizleyici** ve **cila makinesi** mağazadan açılır ve üst paketleri getirir.
 - **Premium Şampuan** köpüğün gücünü ve kazancı artırır. **Pembe Nano Köpük** kozmetik bir seçenektir (mağazadan açılıp kapatılır).
-- Bahşiş süresi dolmadan bitirirsen %35'e kadar bahşiş eklenir. İlerleme `localStorage`'a kaydedilir.
+- Su değdiği yerde köpük panelden aşağı süzülür ve etekten damlar.
+- Araç istenirse **erken teslim** edilebilir (T): eksik kalan her %1 için ücretten 2$ kesilir, bahşiş verilmez.
+- Sol alttaki **eksik yer haritası** aracın sol, sağ ve üst görünüşünde henüz tamamlanmamış noktaları adımın rengiyle gösterir; oyuncunun yeri okla işaretlidir.
+- Bahşiş süresi dolmadan eksiksiz bitirirsen %35'e kadar bahşiş eklenir. İlerleme ve ayarlar `localStorage`'a kaydedilir.
+- Grafik kalitesi: **Düşük** (gölge/parlama/yansıma kapalı, düşük çözünürlük), **Orta** (varsayılan), **Yüksek**.
 - Arka planda prosedürel, kısık sesli bir lo-fi müzik döner (N ile kapatılır).
 
 ## Mimari
@@ -63,6 +69,7 @@ src/
   Packages.js       Yıkama paketleri, sıralı adımlar, ilerleme hesabı
   Tools.js          Aletlerin davranışı ve birinci şahıs modelleri
   Towel.js          Araç yüzeyine serilen, kıvrımlara uyan kurulama havlusu
+  Minimap.js        Eksik yer haritası (sol/sağ/üst görünüş, oyuncu konumu)
   ToolRack.js       Alet rafı, etiketler, mağaza terminali
   Particles.js      Hacimli su/köpük huzmesi, sıçrama, sis, damla ve ışıltı partikülleri
   Environment.js    3 seviyeli prosedürel garaj (Basit → Yenilenmiş → Neon stüdyo)

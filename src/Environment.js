@@ -280,6 +280,24 @@ export class Environment {
     this.spot.intensity = level === 2 ? 28 : level === 1 ? 32 : 30;
   }
 
+  /** Grafik kalitesi: yansıtıcı zemin (ek bir sahne çizimi) aç/kapat */
+  setReflections(on) {
+    this.reflector.visible = on;
+    this.mirrorFloor.opacity = on ? 0.8 : 1;
+    this.mirrorFloor.transparent = on;
+    this.mirrorFloor.needsUpdate = true;
+  }
+
+  /** Gölge çözünürlüğü; 0 = gölge yok */
+  setShadows(size) {
+    this.spot.castShadow = size > 0;
+    if (size > 0 && this.spot.shadow.mapSize.x !== size) {
+      this.spot.shadow.mapSize.set(size, size);
+      this.spot.shadow.map?.dispose();
+      this.spot.shadow.map = null;
+    }
+  }
+
   update(time) {
     for (const a of this.animated) a(time);
   }
@@ -561,8 +579,10 @@ export class Environment {
     reflector.rotation.x = -Math.PI / 2;
     reflector.position.y = -0.002;
     g.add(reflector);
+    this.reflector = reflector;
 
     const floor = new THREE.MeshStandardMaterial({ map: floorTexture(2), roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.8 });
+    this.mirrorFloor = floor;
     const wall = new THREE.MeshStandardMaterial({ map: slatWallTexture(), roughness: 0.75 });
     const ceiling = new THREE.MeshStandardMaterial({ color: 0x07080a, roughness: 1 });
     const frame = new THREE.MeshStandardMaterial({ color: 0x111216, roughness: 0.3, metalness: 0.7 });

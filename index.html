@@ -55,16 +55,25 @@
     <div id="tool-hint"></div>
     <div id="prompt"></div>
 
-    <!-- Sol alt: kısayollar -->
+    <!-- Sol alt: eksik yer haritası -->
+    <div id="minimap" class="panel">
+      <div class="mm-head"><span>Eksik yerler</span><small>renkli noktalar = kalan iş</small></div>
+      <canvas></canvas>
+      <div class="mm-legend"></div>
+    </div>
+
+    <div id="fps" class="hidden"></div>
+
+    <!-- Sağ alt: kısayollar -->
     <div id="keys-help">
       <div class="free-only"><kbd>Sağ Tık</kbd> Sürükle: bak</div>
       <div class="free-only"><kbd>Esc</kbd> Duraklat</div>
       <div><kbd>1</kbd><kbd>2</kbd> Su / Köpük</div>
       <div><kbd>E</kbd> Raftan al · <kbd>Q</kbd> bırak</div>
-      <div><kbd>C</kbd> Çömel</div>
+      <div><kbd>C</kbd> Çömel · <kbd>T</kbd> Teslim et</div>
       <div><kbd>Tab</kbd> Mağaza</div>
       <div><kbd>F</kbd> Kir tarayıcı</div>
-      <div><kbd>M</kbd> Ses · <kbd>N</kbd> Müzik</div>
+      <div><kbd>M</kbd> Ses · <kbd>N</kbd> Müzik · <kbd>P</kbd> FPS</div>
     </div>
 
     <div id="toasts"></div>
@@ -79,7 +88,10 @@
         <h1>PARILTI<span>OTO YIKAMA</span></h1>
       </div>
       <p class="tagline">Kirli arabaları pırıl pırıl yap, parayı topla, dükkânını büyüt.</p>
-      <button id="start-btn" class="btn-primary">Tıkla ve Başla</button>
+      <div class="start-actions">
+        <button id="start-btn" class="btn-primary">Tıkla ve Başla</button>
+        <button class="btn-ghost open-settings">⚙ Ayarlar</button>
+      </div>
       <div class="controls-grid">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Hareket</div>
         <div><kbd>Shift</kbd> Koş</div>
@@ -89,7 +101,8 @@
         <div><kbd>E</kbd> Raftan alet al · <kbd>Q</kbd> bırak</div>
         <div><kbd>C</kbd> Çömel (etek, lastik, jant)</div>
         <div><kbd>Tab</kbd> Mağaza</div>
-        <div><kbd>F</kbd> Kalan kiri göster · <kbd>N</kbd> Müzik</div>
+        <div><kbd>F</kbd> Kalan kiri göster · <kbd>T</kbd> Erken teslim</div>
+        <div><kbd>N</kbd> Müzik · <kbd>P</kbd> FPS · <kbd>Esc</kbd> Menü</div>
       </div>
       <p class="tip">Su ile çamuru sök ➔ köpükle kapla ➔ su ile durula. Köpük lekeleri çözer, durulama onları götürür.
         Detaylı ve Premium paketlerde cam, kurulama, jant, lastik ve cila adımları da var — sıradaki adım hep panelde yazar.</p>
@@ -109,8 +122,53 @@
       </div>
       <div id="shop-items"></div>
       <div class="shop-footer">
-        <button id="reset-btn" class="btn-ghost">İlerlemeyi sıfırla</button>
+        <div>
+          <button id="reset-btn" class="btn-ghost">İlerlemeyi sıfırla</button>
+          <button class="btn-ghost open-settings">⚙ Ayarlar</button>
+        </div>
         <button id="shop-close" class="btn-primary">Devam et <kbd>Tab</kbd></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ayarlar -->
+  <div id="settings" class="overlay hidden">
+    <div class="settings-card">
+      <h2>Ayarlar</h2>
+      <label class="set-row">
+        <span>🎵 Müzik</span>
+        <input type="range" id="set-music" min="0" max="100" step="5" />
+        <b id="set-music-v"></b>
+      </label>
+      <label class="set-row">
+        <span>🔊 Efektler</span>
+        <input type="range" id="set-sfx" min="0" max="100" step="5" />
+        <b id="set-sfx-v"></b>
+      </label>
+      <label class="set-row">
+        <span>🖱 Fare hassasiyeti</span>
+        <input type="range" id="set-sens" min="30" max="200" step="10" />
+        <b id="set-sens-v"></b>
+      </label>
+      <div class="set-row">
+        <span>🖥 Grafik</span>
+        <div class="seg" id="set-quality">
+          <button data-q="low">Düşük</button>
+          <button data-q="medium">Orta</button>
+          <button data-q="high">Yüksek</button>
+        </div>
+      </div>
+      <p class="set-note" id="set-quality-note"></p>
+      <label class="set-row check">
+        <span>📈 FPS göster <kbd>P</kbd></span>
+        <input type="checkbox" id="set-fps" />
+      </label>
+      <label class="set-row check">
+        <span>🗺 Eksik yer haritası</span>
+        <input type="checkbox" id="set-minimap" />
+      </label>
+      <div class="settings-footer">
+        <button id="settings-close" class="btn-primary">Tamam</button>
       </div>
     </div>
   </div>

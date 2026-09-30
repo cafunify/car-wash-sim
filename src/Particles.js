@@ -269,6 +269,7 @@ export class Effects {
     this.foamJet = new Jet(scene, { color: [0.97, 0.98, 1.0], opacity: 0.85, speed: 9, puff: 0.85, wobble: 0.08 });
     this.foamColor = [0.97, 0.98, 1.0];
     this.time = 0;
+    this.density = 1; // grafik kalitesine göre partikül yoğunluğu
     this._p = new THREE.Vector3();
     this._v = new THREE.Vector3();
     this._t = new THREE.Vector3();
@@ -292,7 +293,7 @@ export class Effects {
 
     // Huzme içinde parlayan damlacıklar
     const speed = 24;
-    const count = Math.ceil(dt * 260);
+    const count = Math.ceil(dt * 260 * this.density);
     for (let i = 0; i < count; i++) {
       const lateral = (Math.random() - 0.5) * 2 * spread;
       this._v.copy(dir).addScaledVector(right, lateral).normalize().multiplyScalar(speed * (0.9 + Math.random() * 0.2));
@@ -310,7 +311,7 @@ export class Effects {
     const n = hit.normal;
     // Yansıyan yön: su yüzeyden sekip yanlara saçılır
     const refl = this._t.copy(dir).addScaledVector(n, -2 * dir.dot(n));
-    const crown = Math.ceil(dt * (160 + power * 80));
+    const crown = Math.ceil(dt * (160 + power * 80) * this.density);
     for (let i = 0; i < crown; i++) {
       this._v.set(Math.random() - 0.5, Math.random() - 0.3, Math.random() - 0.5).multiplyScalar(3.2)
         .addScaledVector(refl, 2 + Math.random() * 2.5).addScaledVector(n, 1.2);
@@ -349,7 +350,7 @@ export class Effects {
     const dist = hit ? from.distanceTo(hit.point) : 4;
     const w = 0.04 + dist * 0.11;
     this.foamJet.set(from, dir, dist, w, w * 0.8, right, 0.03);
-    const count = Math.ceil(dt * 160);
+    const count = Math.ceil(dt * 160 * this.density);
     const speed = 8;
     for (let i = 0; i < count; i++) {
       const spread = 0.14;

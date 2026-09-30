@@ -31,6 +31,17 @@ export class AudioManager {
     this.bubbleRate = 0;
     this.dripRate = 0;
     this.musicOn = true;
+    this.sfxVolume = 1;
+    this.musicVolume = 1;
+  }
+
+  /** Ayarlar: 0..1 */
+  setVolumes({ music = this.musicVolume, sfx = this.sfxVolume } = {}) {
+    this.musicVolume = music;
+    this.sfxVolume = sfx;
+    if (!this.ctx) return;
+    this.sfx.gain.setTargetAtTime(sfx, this.ctx.currentTime, 0.05);
+    this.music?.setVolume(music);
   }
 
   init() {
@@ -57,6 +68,10 @@ export class AudioManager {
     this.master.connect(soften);
     soften.connect(comp);
     comp.connect(ctx.destination);
+    // Efekt kanalı (ayarlardan ayrı kısılabilir)
+    this.sfx = ctx.createGain();
+    this.sfx.gain.value = this.sfxVolume;
+    this.sfx.connect(this.master);
 
     this.buffers = { white: this.makeNoise('white'), pink: this.makeNoise('pink'), brown: this.makeNoise('brown') };
     for (const [name, def] of Object.entries(LOOP_DEFS)) this.loops[name] = this.makeLoop(def);
@@ -66,6 +81,7 @@ export class AudioManager {
     amb.gain.gain.value = 0.035;
 
     this.music = new LofiMusic(ctx, this.master);
+    this.music.setVolume(this.musicVolume);
     this.music.setEnabled(this.musicOn);
   }
 
@@ -141,9 +157,9 @@ export class AudioManager {
       depth.connect(wob.gain);
       lfo.start();
       gain.connect(wob);
-      wob.connect(this.master);
+      wob.connect(this.sfx);
     } else {
-      gain.connect(this.master);
+      gain.connect(this.sfx);
     }
 
     // Cila makinesi: motor uğultusu
@@ -201,7 +217,7 @@ export class AudioManager {
     p.pan.value = pan;
     osc.connect(g);
     g.connect(p);
-    p.connect(this.master);
+    p.connect(this.sfx);
     osc.start(t);
     osc.stop(t + dur + 0.02);
   }
@@ -235,7 +251,7 @@ export class AudioManager {
     g.gain.linearRampToValueAtTime(vol, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     osc.connect(g);
-    g.connect(this.master);
+    g.connect(this.sfx);
     osc.start(t);
     osc.stop(t + dur + 0.05);
   }
@@ -254,7 +270,7 @@ export class AudioManager {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(lp);
     lp.connect(g);
-    g.connect(this.master);
+    g.connect(this.sfx);
     src.start(t, Math.random() * 3);
     src.stop(t + dur + 0.02);
   }
@@ -313,7 +329,7 @@ export class AudioManager {
     g.gain.linearRampToValueAtTime(0.0001, t + 3.4);
     osc.connect(lp);
     lp.connect(g);
-    g.connect(this.master);
+    g.connect(this.sfx);
     osc.start(t);
     osc.stop(t + 3.5);
   }

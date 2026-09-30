@@ -131,11 +131,16 @@ export class LofiMusic {
     this.crackleGain.connect(this.out);
   }
 
+  setVolume(v) {
+    this.volume = v;
+    if (this.enabled) this.out.gain.setTargetAtTime(0.32 * v, this.ctx.currentTime, 0.1);
+  }
+
   setEnabled(on) {
     this.enabled = on;
     const t = this.ctx.currentTime;
     this.out.gain.cancelScheduledValues(t);
-    this.out.gain.setTargetAtTime(on ? 0.32 : 0, t, on ? 1.2 : 0.3);
+    this.out.gain.setTargetAtTime(on ? 0.32 * (this.volume ?? 1) : 0, t, on ? 1.2 : 0.3);
     if (on && !this.timer) {
       this.nextTime = t + 0.1;
       this.timer = setInterval(() => this.schedule(), 25);

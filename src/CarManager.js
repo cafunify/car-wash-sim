@@ -115,7 +115,7 @@ export class CarManager {
     volume.generate({ mud: 0.25 + dirtiness * 0.75, stain: Math.random() }, surfaceMask(volume, surface));
     materials.forEach((m) => applyDirtShader(m, volume.uniforms, { tuneParts: !!def.tune }));
     const samples = sampleReachable(surface);
-    volume.setSurfaceSamples(samples.positions, samples.parts);
+    volume.setSurfaceSamples(samples.positions, samples.parts, samples.normals);
     const req = (id) => (pkg.steps.includes(id) ? 1 : 0);
     volume.uniforms.uReq.value.set(req('rims'), req('tires'), req('glass'), req('polish'));
 
@@ -156,10 +156,10 @@ export class CarManager {
     return this.car?.state === 'washing';
   }
 
-  /** Aracı tamamlandı olarak işaretle → kutlama → çıkış */
-  complete() {
+  /** Aracı teslim et: tam temizse kutlama → çıkış, eksikse doğrudan çıkış */
+  complete(celebrate = true) {
     if (!this.car || this.car.state !== 'washing') return;
-    this.car.state = 'celebrate';
+    this.car.state = celebrate ? 'celebrate' : 'leaving';
     this.car.t = 0;
   }
 
@@ -191,6 +191,7 @@ export class CarManager {
       }
       case 'washing':
         volume.soak(dt, this.soakRate);
+        volume.flowTick(dt);
         break;
       case 'celebrate': {
         // Işıltı bandı aracın üzerinden süpürülür
@@ -414,6 +415,7 @@ function surfaceMask(volume, surface) {
 function sampleReachable(surface) {
   const out = [];
   const outParts = [];
+  const outNormals = [];
   const attempts = SURFACE_SAMPLES * 1.7;
   for (let s = 0; s < attempts && out.length < SURFACE_SAMPLES * 3; s++) {
     randomSurfacePoint(surface);
@@ -427,6 +429,7 @@ function sampleReachable(surface) {
     if (REACH_OFFSET - d > 0.05) continue;
     out.push(_v.x, _v.y, _v.z);
     outParts.push(_part);
+    outNormals.push(Math.round(_n.x * 127), Math.round(_n.y * 127), Math.round(_n.z * 127));
   }
-  return { positions: new Float32Array(out), parts: new Uint8Array(outParts) };
+  return { positions: new Float32Array(out), parts: new Uint8Array(outParts), normals: new Int8Array(outNormals) };
 }

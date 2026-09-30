@@ -171,7 +171,7 @@ export class Tools {
           const radius = this.economy.hoseRadius * (1 + hit.distance * 0.05);
           // Durulama: köpük akarken çözdüğü lekeyi de götürür (foamBoost)
           const res = this.carManager.paint(hit.point, radius, {
-            mud: 1.2 * power * near, stain: 0.06 * power, foamBoost: 25 * this.economy.shampoo, wet: 1.3, foam: -3.0 * power,
+            mud: 1.2 * power * near, stain: 0.06 * power, foamBoost: 25 * this.economy.shampoo, wet: 1.3, foam: -3.0 * power, flow: 1,
           }, dt);
           if (res && res.foam > 0.2) bubbleRate = 0.35;
         }

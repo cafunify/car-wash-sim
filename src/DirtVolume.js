@@ -95,6 +95,9 @@ export class DirtVolume {
     const n = this.nx * this.ny * this.nz * 4;
     this.data = new Uint8Array(n);
     this.detail = new Uint8Array(n);
+    // Akan su (sadece CPU): su değen yerde köpük aşağı süzülür
+    this.flow = new Uint8Array(n / 4);
+    this.surface = new Uint8Array(n / 4); // yüzeye yakın voxeller
     this.texture = make3DTexture(this.data, this.nx, this.ny, this.nz);
     this.detailTexture = make3DTexture(this.detail, this.nx, this.ny, this.nz);
 
@@ -181,6 +184,7 @@ export class DirtVolume {
           if (mask && !mask[vi]) continue;
           const i = vi * 4;
           active.push(i);
+          this.surface[vi] = 1;
           const gx = ix / S;
 
           // Çamur: alt kısımlar, tekerlek çevresi ve arka tampon daha çamurlu
@@ -244,6 +248,7 @@ export class DirtVolume {
     const glassK = (brush.glass || 0) * k;
     const shineK = (brush.shine || 0) * k;
     const foamBoost = brush.foamBoost || 0;
+    const flow = brush.flow || 0;
     const needsClean = !!brush.shineNeedsClean;
     const touchDetail = dustK || tireK || glassK || shineK;
 
@@ -276,6 +281,7 @@ export class DirtVolume {
           if (stainK) data[i + 1] = apply(data[i + 1], -stainK * f * (1 + foamBoost * (data[i + 3] / 255)));
           if (wetK) data[i + 2] = apply(data[i + 2], wetK * f);
           if (foamK) data[i + 3] = apply(data[i + 3], foamK * f);
+          if (flow && f > 0.15) this.flow[i >> 2] = 255;
           if (!touchDetail) continue;
           if (dustK) detail[i] = apply(detail[i], -dustK * f);
           if (tireK) detail[i + 1] = apply(detail[i + 1], -tireK * f);
@@ -320,11 +326,63 @@ export class DirtVolume {
     if (changed) this.dirty = true;
   }
 
+  /**
+   * Akan su köpüğü aşağı taşır: akış olan yüzey voxelindeki köpüğün bir kısmı altındaki
+   * yüzey voxeline geçer, su da onunla birlikte iner. Altında yüzey yoksa köpük damlar.
+   * Dönüş: bu adımda bir şey aktı mı
+   */
+  flowTick(dt) {
+    this.flowT = (this.flowT || 0) + dt;
+    if (this.flowT < 1 / 12) return false;
+    const step = this.flowT;
+    this.flowT = 0;
+    const { data, flow, surface, activeIdx, nx } = this;
+    const layer = nx * this.ny;
+    const fade = step * 255 / 1.6; // akış ~1.6 sn'de söner
+    let moved = false;
+    // Artan indeks = alttan üste: aşağı taşınan köpük aynı adımda tekrar taşınmaz
+    for (let n = 0; n < activeIdx.length; n++) {
+      const i = activeIdx[n];
+      const vi = i >> 2;
+      const fl = flow[vi];
+      if (!fl) continue;
+      flow[vi] = fl > fade ? fl - fade : 0;
+      const foam = data[i + 3];
+      if (foam < 12) continue;
+      // Aşağıdaki yüzey voxeli (dik yüzeyde tam altı, eğimli yüzeyde yan-altı)
+      const below = vi - nx;
+      let t = -1;
+      if (below >= 0) {
+        if (surface[below]) t = below;
+        else if (surface[below - 1]) t = below - 1;
+        else if (surface[below + 1]) t = below + 1;
+        else if (surface[below - layer]) t = below - layer;
+        else if (surface[below + layer]) t = below + layer;
+      }
+      const k = fl / 255;
+      const amt = (foam * 0.45 * k) | 0;
+      if (!amt) continue;
+      data[i + 3] = foam - amt;
+      // Akan köpükle çözülmüş leke de gider
+      if (data[i + 1]) data[i + 1] = Math.max(0, data[i + 1] - ((foam / 255) * k * 4) | 0);
+      if (t >= 0) {
+        const j = t * 4;
+        data[j + 3] = Math.min(255, data[j + 3] + amt * 0.9) | 0;
+        data[j + 2] = Math.max(data[j + 2], 180);
+        if (flow[t] < fl * 0.9) flow[t] = fl * 0.9;
+      }
+      moved = true;
+    }
+    if (moved) this.dirty = true;
+    return moved;
+  }
+
   /** Yüzey örneklerini ata (ilerleme yüzdesi için). positions: xyz, parts: PART değerleri */
-  setSurfaceSamples(positions, parts) {
+  setSurfaceSamples(positions, parts, normals = null) {
     const n = positions.length / 3;
     this.samplePos = positions;
     this.sampleParts = parts;
+    this.sampleNormals = normals;
     this.sampleIdx = new Uint32Array(n);
     for (let s = 0; s < n; s++) {
       this.sampleIdx[s] = this.voxelIndexAt(positions[s * 3], positions[s * 3 + 1], positions[s * 3 + 2]) * 4;

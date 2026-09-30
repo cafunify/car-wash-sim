@@ -27,9 +27,8 @@ export const CAR_CATALOG = [
   // Modeller kendi gerçek ölçeklerinde (metre) kullanılır; `length` verilirse o boya ölçeklenir.
   DZ('ace11', "Ace '11", 'ace11', { pay: 50, time: 150, tier: 0 }),
   DZ('kiri86', "Kiri '86", 'kiri86', { pay: 55, time: 160, tier: 0 }),
-  DZ('fairheavenlt', "Fairheaven LT '80", 'fairheavenlt80', { pay: 65, time: 175, tier: 0 }),
   DZ('asti89', "Asti Stradale '89", 'astistradale89', { pay: 70, time: 160, tier: 1 }),
-  DZ('negotiator80', "Negotiator '80", 'negotiator80', { pay: 70, time: 180, tier: 1 }),
+  DZ('negotiator80', "Negotiator '80", 'negotiator80', { pay: 65, time: 175, tier: 0 }),
   DZ('fairheavensw', "Fairheaven SW '84", 'fairheavensw84', { pay: 75, time: 185, tier: 1 }),
   DZ('illinois90', "Illinois '90", 'illinois90', { pay: 75, time: 185, tier: 1 }),
   DZ('shvan92', "Shvan '92 Minibüs", 'shvan92', { pay: 85, time: 200, tier: 1 }),
