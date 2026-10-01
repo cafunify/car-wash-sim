@@ -16,7 +16,7 @@ Sana bir özellik verilir ya da "sıradakini yap" denir; sen onu mevcut kodla uy
    - `src/main.js` — oyun döngüsü (`frame()`), olay akışı (`spawnCar`, `onCarArrived`, `onCarWashed`, `onCarLeft`), girdi ve `exposeDebug()` içindeki `window.game` debug API'si
    - `src/EconomyManager.js` — para, yükseltmeler (`UPGRADES`, `TABLE`), müşteri zamanlayıcısı, itibar, gün, kayıt (`load()` eski kayıtları varsayılanlarla birleştirir)
    - `src/Packages.js` — yıkama adımları (`STEPS`), paketler (`PACKAGES`), ilerleme hesabı
-   - `src/DirtVolume.js` — kir hacmi ve shader enjeksiyonu. İki RGBA doku = 8 kanal ve **hepsi dolu**; yeni kir türü yeni bir doku ister
+   - `src/DirtVolume.js` — kir hacmi ve shader enjeksiyonu. Üç RGBA doku = 12 kanal; doku 0 ve 1 dolu, doku 2'de R = kuş pisliği, G = böcek, **B ve A boş** (kil bar / katran için)
    - `src/Tools.js`, `src/ToolRack.js` — aletler ve raf; `src/HUD.js` + `index.html` + `src/style.css` — arayüz
 
 ## Kod kuralları
@@ -48,7 +48,7 @@ Sana bir özellik verilir ya da "sıradakini yap" denir; sen onu mevcut kodla uy
 - [x] Gün döngüsü + gün sonu raporu
 - [x] İtibar (1–5 yıldız) sistemi: ücret ve paket sıklığını etkiler
 - [x] Teslimde önce/sonra fotoğrafı, puan ve müşteri yorumu
-- [ ] Üçüncü kir dokusu + **kuş pisliği** (noktasal, bekledikçe boyada iz bırakır) ve **böcek lekesi** (ön tampon, aynalar, ön cam)
+- [x] Üçüncü kir dokusu + **kuş pisliği** (noktasal, bekledikçe boyada iz bırakır) ve **böcek lekesi** (ön tampon, aynalar, ön cam)
 - [ ] **Kil bar** aleti: etek ve kapılardaki katran/reçineyi ovarak söker (yeni adım + mağaza yükseltmesi)
 - [ ] Kapıda bekleyen **müşteri sırası** ve sabır süresi
 - [ ] **Özel istekler** ("sadece jantlar", "20 saniyede bitir") ve ek bahşiş

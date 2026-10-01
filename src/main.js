@@ -23,6 +23,8 @@ const CROUCH_HEIGHT = 1.02;
 const WALK_SPEED = 3.3;
 const RUN_SPEED = 5.6;
 const PLAYER_RADIUS = 0.32;
+// Kuş pisliği bu kadar saniye araçta kalırsa kurur: teslimde müşteri puanı 1 yıldız düşer
+const BIRD_ETCH_TIME = 90;
 
 
 /** Grafik kalitesi ön ayarları */
@@ -140,10 +142,11 @@ class Game {
   // ---------------------------------------------------------------- olaylar
   spawnCar() {
     const pkg = pickPackage(this.economy.owns, this.economy.state.rep);
-    this.cars.spawn(this.economy.shopLevel, pkg);
+    const car = this.cars.spawn(this.economy.shopLevel, pkg);
     this.applyCosmetics();
-    this.hud.setPackage(pkg);
-    this.hud.setProgress(0, null, pkg.steps[0], false);
+    // Araca özel paket: kuş pisliği / böcek yoksa "Kuş/Böcek" adımı yok
+    this.hud.setPackage(car.package);
+    this.hud.setProgress(0, null, car.package.steps[0], false);
     this.hints = new Set();
   }
 
@@ -167,7 +170,7 @@ class Game {
   /** Aracı teslim et. progress < 1 ise erken teslim: eksik her %1 için 2$ kesilir */
   onCarWashed(progress = 1) {
     const car = this.cars.car;
-    const res = this.economy.payout(progress);
+    const res = this.economy.payout(progress, { etched: car?.birdEtched });
     this.deliverArmed = 0;
     // "Sonra" fotoğrafı bu karenin sonunda çekilir, teslim kartı onunla açılır
     if (res) this.pendingShot = { kind: 'after', car, res };
@@ -469,7 +472,7 @@ class Game {
       }
       if (e.code === 'KeyF') {
         this.cars.pulseHighlight();
-        this.hud.hint('Kir tarayıcı: turuncu = kir, mavi = ıslak');
+        this.hud.hint('Kir tarayıcı: turuncu = kir, mor = kuş pisliği/böcek, mavi = ıslak');
       }
       if (e.code === 'KeyM') this.hud.hint(this.audio.toggleMute() ? 'Ses kapalı' : 'Ses açık', 1.2);
     });
@@ -674,8 +677,23 @@ class Game {
     this.hud.setProgress(total, steps, current, done);
     this.lastStats = { ...s, steps, current, total };
     this.audio.setDrips(Math.min(1, (1 - s.dry) * 1.5));
+    this.updateBirdTimer(car, s, 0.1);
     this.guide(current, s);
     if (done) this.onCarWashed();
+  }
+
+  /** Kuş pisliği araçta bekledikçe kurur: önce uyarı, süre dolunca teslimde puan cezası */
+  updateBirdTimer(car, s, dt) {
+    if (car.birdEtched || s.bird >= STEPS.spots.threshold) return;
+    car.birdTime = (car.birdTime || 0) + dt;
+    if (!car.birdWarned && car.birdTime > BIRD_ETCH_TIME * 0.65) {
+      car.birdWarned = true;
+      this.hud.toast('Kuş pisliği kuruyor!', 'Çabuk temizle, yoksa müşteri memnun kalmaz', 'warn');
+    }
+    if (car.birdTime > BIRD_ETCH_TIME) {
+      car.birdEtched = true;
+      this.hud.toast('Kuş pisliği kurudu', 'Teslimde müşteri puanı 1 yıldız düşecek', 'warn');
+    }
   }
 
   /** Sıradaki adıma yönlendir: panelde ipucu, gerekli alet rafta parlar */
@@ -692,6 +710,7 @@ class Game {
     let extra = '';
     if (current === 'rinse' && s.foam < 0.02 && s.stain < STEPS.rinse.threshold) extra = ' · lekeler kaldı: tekrar köpükle';
     if (current === 'dry' && s.foam >= 0.02) extra = ' · önce köpüğü durula';
+    if (current === 'spots' && s.birdHard > 0.05) extra = ' · kuş pisliği sert: köpükle kapla, biraz beklet';
     if ((current === 'tires' || current === 'rims') && !this.crouching) extra = ' · <kbd>C</kbd> çömel';
     this.hud.setStepHint(`${step.long}: ${how}${extra}`);
     this.rack.setHighlight(!tool.holster && !holding ? tool.id : null);
@@ -762,6 +781,16 @@ class Game {
       cleanAll: () => this.cars.cleanAll(),
       addMoney: (n = 1000) => this.economy.addMoney(n),
       endDay: () => this.endDay(),
+      // Aktif araca kuş pisliği / böcek lekesi ekle (adım yoksa pakete eklenir)
+      spots: (bird = 4, bugs = 40) => {
+        if (this.cars.addSpots(bird, bugs)) this.hud.setPackage(this.cars.car.package);
+        return this.cars.car?.volume.spotCenters.length ?? 0;
+      },
+      // Kuş pisliği kuruma süresini doldur (teslimde puan cezası)
+      etchBird: () => {
+        const car = this.cars.car;
+        if (car) car.birdTime = BIRD_ETCH_TIME;
+      },
       setLevel: (l) => this.applyLevel(l),
       stats: () => this.lastStats,
       play: (on = true) => (this.debugPlay = on),
@@ -776,9 +805,9 @@ class Game {
       nextCar: (pkgId) => {
         this.cars.disposeCar();
         const pkg = PACKAGES[pkgId] || pickPackage(this.economy.owns);
-        this.cars.spawn(this.economy.shopLevel, pkg);
+        const car = this.cars.spawn(this.economy.shopLevel, pkg);
         this.applyCosmetics();
-        this.hud.setPackage(pkg);
+        this.hud.setPackage(car.package);
         this.hints = new Set();
       },
       teleport: (x, z, lookX = 0, lookY = 1, lookZ = 0) => {

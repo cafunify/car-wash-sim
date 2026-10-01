@@ -30,7 +30,7 @@ Tarayıcıda `http://localhost:5173` adresini aç. Fare kilidi (Pointer Lock) de
 | Q | Raf aletini bırak, tabancaya dön |
 | T | Erken teslim (ilk basış ücret önizlemesi, ikinci basış onay) |
 | Tab | Mağaza |
-| F | Kir tarayıcı (kalan kir turuncu, cila gereken boya sarı, ıslaklık mavi) |
+| F | Kir tarayıcı (kalan kir turuncu, kuş pisliği/böcek mor, cila gereken boya sarı, ıslaklık mavi) |
 | M / N / P | Tüm sesler / fon müziği / FPS göstergesi |
 | Esc | Menü (Ayarlar: müzik ve efekt sesi, fare hassasiyeti, grafik kalitesi, FPS, eksik yer haritası) |
 
@@ -42,17 +42,23 @@ Oyuncu **su ve köpük tabancası belinde** başlar. Diğer aletler aracın sağ
 
 | Paket | Adımlar | Kazanç |
 | --- | --- | --- |
-| Standart Temizlik | Su ➔ Köpük ➔ Su (durulama) — kurulama gerekmez | ×1 |
-| Detaylı Yıkama | Su ➔ Köpük ➔ Su ➔ Cam ➔ Kurulama ➔ Lastik | ×1.7 |
-| Premium Temizlik | Su ➔ Köpük ➔ Su ➔ Cam ➔ Kurulama ➔ Jant ➔ Lastik ➔ Cila | ×2.6 |
+| Standart Temizlik | Su ➔ Köpük ➔ (Kuş/Böcek) ➔ Su (durulama) — kurulama gerekmez | ×1 |
+| Detaylı Yıkama | Su ➔ Köpük ➔ (Kuş/Böcek) ➔ Su ➔ Cam ➔ Kurulama ➔ Lastik | ×1.7 |
+| Premium Temizlik | Su ➔ Köpük ➔ (Kuş/Böcek) ➔ Su ➔ Cam ➔ Kurulama ➔ Jant ➔ Lastik ➔ Cila | ×2.6 |
+
+**Kuş/Böcek** adımı yalnızca bu kirlerle gelen araçlarda pakete girer (kuş pisliği ~%55, böcek lekesi ~%60 olasılıkla).
 
 - **Su** çamuru söker. **Köpük** yüzeyde kaldıkça lekeleri çözer ve kendiliğinden kaybolmaz; su ile durulanınca çözdüğü lekeyi de götürür.
 - Durulamadan sonraki **su lekeleri** kendiliğinden kurumaz; havlu araca serilir ve kaportanın kıvrımlarını takip eder.
 - **Jant temizleyici** (tozla temas edince morarır), **lastik parlatıcı**, **cam temizleyici** ve **cila makinesi** mağazadan açılır ve üst paketleri getirir.
 - **Premium Şampuan** köpüğün gücünü ve kazancı artırır. **Pembe Nano Köpük** kozmetik bir seçenektir (mağazadan açılıp kapatılır).
 - Su değdiği yerde köpük panelden aşağı süzülür ve etekten damlar.
+- **Kuş pisliği** üst yüzeylerde (kaput, tavan, bagaj) beyazımsı-gri lekelerdir. Kurumuş kabuğu su ile çok zor çıkar;
+  üzerinde birkaç saniye köpük bekleyince yumuşar, sonra su ile hemen gider. Araç geldikten sonra 90 saniye içinde
+  temizlenmezse kurur: teslimde müşteri puanı 1 yıldız düşer (60. saniyede uyarı gelir).
+- **Böcek lekeleri** aracın ön yüzünde (tampon, ön cam, aynalar) küçük koyu sarı/siyah noktacıklardır; köpük çözer, su söker.
 - Araç istenirse **erken teslim** edilebilir (T): eksik kalan her %1 için ücretten 2$ kesilir, bahşiş verilmez.
-- Sol alttaki **eksik yer haritası** aracın sol, sağ ve üst görünüşünde henüz tamamlanmamış noktaları adımın rengiyle gösterir; oyuncunun yeri okla işaretlidir.
+- Sol alttaki **eksik yer haritası** aracın sol, sağ ve üst görünüşünde henüz tamamlanmamış noktaları adımın rengiyle gösterir; kalan kuş pisliği/böcek lekeleri mor noktalarla ve adetle işaretlenir; oyuncunun yeri okla işaretlidir.
 - Bahşiş süresi dolmadan eksiksiz bitirirsen %35'e kadar bahşiş eklenir. İlerleme ve ayarlar `localStorage`'a kaydedilir.
 - Grafik kalitesi: **Düşük** (gölge/parlama/yansıma kapalı, düşük çözünürlük), **Orta** (varsayılan), **Yüksek**.
 - Arka planda prosedürel, kısık sesli bir lo-fi müzik döner (N ile kapatılır).
@@ -62,7 +68,7 @@ Oyuncu **su ve köpük tabancası belinde** başlar. Diğer aletler aracın sağ
 ```
 src/
   main.js           Oyun döngüsü, renderer, bloom, kontroller, raf etkileşimi, olay akışı
-  DirtVolume.js     8 kanallı 3D kir hacmi + malzemelere shader enjeksiyonu (çekirdek mekanik)
+  DirtVolume.js     12 kanallı (10'u dolu) 3D kir hacmi + malzemelere shader enjeksiyonu (çekirdek mekanik)
   CarParts.js       Parça sınıflandırması (boya/cam/lastik/jant/trim) → köşe başına `aPart`
   CarManager.js     Araç yaşam döngüsü, arka plan yükleme, asenkron shader derleme, yüzey örnekleme
   CarModels.js      Araç kataloğu, GLB hazırlama/yönlendirme, rastgele metalik boya, prosedürel yedek
@@ -81,10 +87,15 @@ src/
 
 ### Kir sistemi
 
-Kir, UV'ye boyanan bir doku yerine **araç-yerel 3D voxel hacminde** tutulur (iki `Data3DTexture`, RGBA8):
+Kir, UV'ye boyanan bir doku yerine **araç-yerel 3D voxel hacminde** tutulur (üç `Data3DTexture`, RGBA8):
 
 - Doku 0: çamur · leke · ıslaklık · köpük
 - Doku 1: fren tozu (jant) · lastik matlığı · cam filmi · cila
+- Doku 2: kuş pisliği · böcek lekesi · (boş) · (boş) — B/A ileride kil bar / katran için ayrıldı
+
+Doku 2'deki noktasal kirler `addSpot()` ile erişilebilir yüzey örneklerinin üstüne tek tek serpilir; küçük oldukları için
+ilerlemeleri yüzey örneklerinden değil, eklenirken kaydedilen voxel listesinden hesaplanır. Kuş pisliğinde değer
+`BIRD_SOFT`'un üstündeyse kuru kabuktur: köpük onu bu seviyeye kadar yumuşatır, su ancak yumuşamış kısmı hızla söker.
 
 Bunun nedeni birçok GLB modelinin paylaşılan doku atlası UV'si kullanmasıdır: UV'ye boyamak aynı UV'yi paylaşan tüm
 yüzeyleri birden temizlerdi. Hangi katmanın nerede geçerli olduğunu `CarParts.js`'in her köşeye yazdığı parça etiketi
@@ -105,7 +116,7 @@ npx @gltf-transform/cli optimize girdi.glb public/models/cars/dz/cikti.glb --tex
 
 ### Debug
 
-Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `nextCar('premium')`, `setLevel(2)`, `stats()`, `play()`, `fire()`, `teleport(x, z, bakX, bakY, bakZ)`.
+Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `nextCar('premium')`, `setLevel(2)`, `stats()` (kuş/böcek için `bird`, `bugs`, `spots`, `birdHard`), `spots(kuş = 4, böcek = 40)` (aktif araca leke ekler, adım yoksa pakete katar), `etchBird()` (kuş pisliği kuruma süresini doldurur), `play()`, `fire()`, `teleport(x, z, bakX, bakY, bakZ)`.
 
 ## Varlıklar ve lisans
 

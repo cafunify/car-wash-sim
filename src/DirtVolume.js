@@ -10,6 +10,10 @@ import { PART } from './CarParts.js';
  *
  * Doku 0 (RGBA8):  R = çamur · G = leke · B = ıslaklık · A = köpük
  * Doku 1 (RGBA8):  R = fren tozu (jant) · G = lastik matlığı · B = cam filmi · A = cila
+ * Doku 2 (RGBA8):  R = kuş pisliği · G = böcek lekesi · B, A = boş (ileride kil bar / katran için)
+ *
+ * Doku 2'deki noktasal kirler gürültüyle değil, `addSpot()` ile tek tek eklenir; ilerlemeleri
+ * yüzey örneklerinden değil, eklenirken kaydedilen voxel listesinden (`spotIdx`) hesaplanır.
  *
  * Detay katmanları hacmin her yerinde tutulur; hangi parçada geçerli oldukları
  * shader'da köşe başına `aPart` niteliğiyle (bkz. CarParts.js) belirlenir.
@@ -17,6 +21,9 @@ import { PART } from './CarParts.js';
 
 export const CLEAN_THRESHOLD = 38; // 0-255: bu değerin altı "temiz" sayılır
 const POLISHED = 190; // cila bu değerin üstündeyse "parlatıldı"
+// Kuş pisliği bu değerin üstündeyse kuru/sert kabuk: su çok yavaş söker, köpük bu değere kadar yumuşatır
+export const BIRD_SOFT = 120;
+const BIRD_HARD_RATE = 0.05; // sert kabukta suyun sökme çarpanı
 
 // ------------------------------------------------------------------ JS gürültü
 function hash3(x, y, z, seed) {
@@ -95,15 +102,18 @@ export class DirtVolume {
     const n = this.nx * this.ny * this.nz * 4;
     this.data = new Uint8Array(n);
     this.detail = new Uint8Array(n);
+    this.spot = new Uint8Array(n); // doku 2: kuş pisliği · böcek lekesi · (boş) · (boş)
     // Akan su (sadece CPU): su değen yerde köpük aşağı süzülür
     this.flow = new Uint8Array(n / 4);
     this.surface = new Uint8Array(n / 4); // yüzeye yakın voxeller
     this.texture = make3DTexture(this.data, this.nx, this.ny, this.nz);
     this.detailTexture = make3DTexture(this.detail, this.nx, this.ny, this.nz);
+    this.spotTexture = make3DTexture(this.spot, this.nx, this.ny, this.nz);
 
     this.uniforms = {
       uDirtTex: { value: this.texture },
       uDetailTex: { value: this.detailTexture },
+      uSpotTex: { value: this.spotTexture },
       uDirtMin: { value: this.min.clone() },
       uDirtSize: { value: this.size.clone() },
       uWorldToCar: { value: new THREE.Matrix4() },
@@ -116,6 +126,9 @@ export class DirtVolume {
 
     this.dirty = false; // doku 0 (çamur/leke/ıslaklık/köpük) değişti
     this.detailDirty = false; // doku 1 (jant/lastik/cam/cila) değişti
+    this.spotDirty = false; // doku 2 (kuş pisliği/böcek) değişti
+    this.spotIdx = new Uint32Array(0); // noktasal kir voxelleri: bayt indeksi + kanal (0 kuş, 1 böcek)
+    this.spotCenters = []; // eksik yer haritası için leke merkezleri: { x, y, z, i, ch }
     this.activeIdx = null; // yüzeye yakın voxeller (kuruma sadece bunlarda hesaplanır)
     this.sampleIdx = null; // yüzey örneklerinin voxel indeksleri
     this.samplePos = null; // yüzey örneklerinin yerel pozisyonları
@@ -225,10 +238,12 @@ export class DirtVolume {
    *   wet, foam                        : işaretli (+ ekler, - siler)
    *   shine > 0                         : cila ekler (shineNeedsClean ise sadece temiz yüzeye)
    *   foamBoost                         : köpüklü yüzeyde leke sökme çarpanı
+   *   bird > 0                          : kuş pisliği söker (sert kabukta çok yavaş, köpükle yumuşamışta hızlı)
+   *   bugs > 0                          : böcek lekesi söker (köpüklü yüzeyde foamBoost ile hızlanır)
    * Dönüş: fırça altındaki ortalama değerler (ipuçları için).
    */
   paint(p, radius, brush, dt) {
-    const { voxel, min, nx, ny, nz, data, detail } = this;
+    const { voxel, min, nx, ny, nz, data, detail, spot } = this;
     const r2 = radius * radius;
     const x0 = Math.max(0, Math.floor((p.x - radius - min.x) / voxel));
     const x1 = Math.min(nx - 1, Math.floor((p.x + radius - min.x) / voxel));
@@ -247,12 +262,15 @@ export class DirtVolume {
     const tireK = (brush.tire || 0) * k;
     const glassK = (brush.glass || 0) * k;
     const shineK = (brush.shine || 0) * k;
+    const birdK = (brush.bird || 0) * k;
+    const bugsK = (brush.bugs || 0) * k;
+    const touchSpot = (birdK || bugsK) && this.spotIdx.length > 0;
     const foamBoost = brush.foamBoost || 0;
     const flow = brush.flow || 0;
     const needsClean = !!brush.shineNeedsClean;
     const touchDetail = dustK || tireK || glassK || shineK;
 
-    const sum = new Float64Array(8);
+    const sum = new Float64Array(10);
     let count = 0;
 
     // Stokastik yuvarlama: küçük adımlar da zamanla etkili olsun
@@ -275,6 +293,7 @@ export class DirtVolume {
 
           sum[0] += data[i]; sum[1] += data[i + 1]; sum[2] += data[i + 2]; sum[3] += data[i + 3];
           sum[4] += detail[i]; sum[5] += detail[i + 1]; sum[6] += detail[i + 2]; sum[7] += detail[i + 3];
+          sum[8] += spot[i]; sum[9] += spot[i + 1];
           count++;
 
           if (mudK) data[i] = apply(data[i], -mudK * f);
@@ -282,6 +301,11 @@ export class DirtVolume {
           if (wetK) data[i + 2] = apply(data[i + 2], wetK * f);
           if (foamK) data[i + 3] = apply(data[i + 3], foamK * f);
           if (flow && f > 0.15) this.flow[i >> 2] = 255;
+          if (touchSpot) {
+            const b = spot[i];
+            if (birdK && b) spot[i] = apply(b, -birdK * f * (b > BIRD_SOFT ? BIRD_HARD_RATE : 1));
+            if (bugsK && spot[i + 1]) spot[i + 1] = apply(spot[i + 1], -bugsK * f * (1 + foamBoost * (data[i + 3] / 255)));
+          }
           if (!touchDetail) continue;
           if (dustK) detail[i] = apply(detail[i], -dustK * f);
           if (tireK) detail[i + 1] = apply(detail[i + 1], -tireK * f);
@@ -295,16 +319,19 @@ export class DirtVolume {
     if (!count) return null;
     this.dirty = true;
     if (touchDetail) this.detailDirty = true;
+    if (touchSpot) this.spotDirty = true;
     const inv = 1 / (count * 255);
     return {
       mud: sum[0] * inv, stain: sum[1] * inv, wet: sum[2] * inv, foam: sum[3] * inv,
       dust: sum[4] * inv, tire: sum[5] * inv, glass: sum[6] * inv, shine: sum[7] * inv,
+      bird: sum[8] * inv, bugs: sum[9] * inv,
     };
   }
 
   /**
    * Köpük yüzeyde beklerken altındaki lekeyi yavaşça çözer (köpük ve su kendiliğinden kaybolmaz:
    * köpük durulanana, su lekeleri havluyla alınana kadar kalır).
+   * Kuş pisliğinin sert kabuğunu BIRD_SOFT seviyesine kadar yumuşatır, böcek lekesini de çözer.
    * rate: tam köpükte saniyede sökülen leke oranı
    */
   soak(dt, rate) {
@@ -324,6 +351,74 @@ export class DirtVolume {
       }
     }
     if (changed) this.dirty = true;
+
+    // Noktasal kirler: sadece kayıtlı leke voxellerinde
+    const { spot, spotIdx } = this;
+    if (!spotIdx.length) return;
+    const birdK = k * 4; // tam köpükte sert kabuk birkaç saniyede yumuşar
+    const bugK = k * 2;
+    let spotChanged = false;
+    for (let n = 0; n < spotIdx.length; n++) {
+      const j = spotIdx[n];
+      const i = j & ~3;
+      const foam = data[i + 3];
+      if (foam <= 20) continue;
+      const ff = foam / 255;
+      if ((j & 3) === 0) {
+        if (spot[j] > BIRD_SOFT) {
+          spot[j] = Math.max(BIRD_SOFT, spot[j] - birdK * ff - Math.random()) | 0;
+          spotChanged = true;
+        }
+      } else if (spot[j]) {
+        spot[j] = Math.max(0, spot[j] - bugK * ff - Math.random()) | 0;
+        spotChanged = true;
+      }
+    }
+    if (spotChanged) this.spotDirty = true;
+  }
+
+  /**
+   * Noktasal kir ekle (kuş pisliği ya da böcek lekesi). Yüzeye yakın voxellere yumuşak
+   * kenarlı bir küre yazar ve voxelleri ilerleme hesabı için kaydeder.
+   * ch: 0 kuş pisliği, 1 böcek lekesi · value: 0..1 merkez yoğunluğu
+   * mark: merkez eksik yer haritasında ayrı leke olarak gösterilsin mi
+   */
+  addSpot(p, radius, ch, value = 1, mark = true) {
+    const { voxel, min, nx, ny, nz, spot, surface } = this;
+    // Yarıçap en az bir voxel olsun ki küçük lekeler de dokuya düşsün
+    const r = Math.max(radius, voxel * 0.9);
+    const x0 = Math.max(0, Math.floor((p.x - r - min.x) / voxel));
+    const x1 = Math.min(nx - 1, Math.floor((p.x + r - min.x) / voxel));
+    const y0 = Math.max(0, Math.floor((p.y - r - min.y) / voxel));
+    const y1 = Math.min(ny - 1, Math.floor((p.y + r - min.y) / voxel));
+    const z0 = Math.max(0, Math.floor((p.z - r - min.z) / voxel));
+    const z1 = Math.min(nz - 1, Math.floor((p.z + r - min.z) / voxel));
+    const added = [];
+    for (let iz = z0; iz <= z1; iz++) {
+      const dz = min.z + (iz + 0.5) * voxel - p.z;
+      for (let iy = y0; iy <= y1; iy++) {
+        const dy = min.y + (iy + 0.5) * voxel - p.y;
+        for (let ix = x0; ix <= x1; ix++) {
+          const vi = ix + nx * (iy + ny * iz);
+          if (!surface[vi]) continue;
+          const dx = min.x + (ix + 0.5) * voxel - p.x;
+          const d = Math.sqrt(dx * dx + dy * dy + dz * dz) / r;
+          if (d > 1) continue;
+          const v = (value * (1 - d * d * 0.6) * 255) | 0;
+          const i = vi * 4 + ch;
+          if (!spot[i]) added.push(i);
+          if (v > spot[i]) spot[i] = v;
+        }
+      }
+    }
+    if (added.length) {
+      const merged = new Uint32Array(this.spotIdx.length + added.length);
+      merged.set(this.spotIdx);
+      merged.set(added, this.spotIdx.length);
+      this.spotIdx = merged;
+    }
+    if (mark) this.spotCenters.push({ x: p.x, y: p.y, z: p.z, i: this.voxelIndexAt(p.x, p.y, p.z) * 4 + ch, ch });
+    this.spotDirty = true;
   }
 
   /**
@@ -392,7 +487,8 @@ export class DirtVolume {
   /** Temizlik istatistikleri: her katman için temiz örneklerin oranı (parçası olmayan katman = 1) */
   stats() {
     const idx = this.sampleIdx;
-    const out = { mud: 1, stain: 1, dry: 1, foam: 0, foamCover: 0, rims: 1, tires: 1, glass: 1, polish: 1 };
+    const out = { mud: 1, stain: 1, dry: 1, foam: 0, foamCover: 0, rims: 1, tires: 1, glass: 1, polish: 1, bird: 1, bugs: 1, spots: 1, birdHard: 0 };
+    this.spotStats(out);
     if (!idx || !idx.length) return out;
     const { data, detail, sampleParts } = this;
     let mud = 0, stain = 0, dry = 0, foam = 0, cover = 0, body = 0;
@@ -429,6 +525,34 @@ export class DirtVolume {
     return out;
   }
 
+  /** Noktasal kirlerin temiz oranı (kayıtlı leke voxelleri üzerinden; leke yoksa 1) */
+  spotStats(out) {
+    const { spot, spotIdx } = this;
+    let nb = 0, okb = 0, ng = 0, okg = 0, hard = 0;
+    for (let n = 0; n < spotIdx.length; n++) {
+      const i = spotIdx[n];
+      const v = spot[i];
+      if ((i & 3) === 0) {
+        nb++;
+        if (v < CLEAN_THRESHOLD) okb++;
+        else if (v > BIRD_SOFT) hard++;
+      } else {
+        ng++;
+        if (v < CLEAN_THRESHOLD) okg++;
+      }
+    }
+    out.bird = nb ? okb / nb : 1;
+    out.bugs = ng ? okg / ng : 1;
+    out.spots = nb + ng ? (okb + okg) / (nb + ng) : 1;
+    out.birdHard = nb ? hard / nb : 0; // hâlâ sert kabuklu kuş pisliği oranı
+    return out;
+  }
+
+  /** Leke merkezinde kir kaldı mı (eksik yer haritası için) */
+  spotRemains(c) {
+    return this.spot[c.i] >= CLEAN_THRESHOLD;
+  }
+
   /** Islak bir yüzey noktası döndür (damla efekti için) */
   randomWetSample(out) {
     const idx = this.sampleIdx;
@@ -446,6 +570,8 @@ export class DirtVolume {
   /** Hepsini temizle (debug). polish: cila katmanını da doldur */
   cleanAll(polish = true) {
     this.data.fill(0);
+    this.spot.fill(0);
+    this.spotDirty = true;
     for (let i = 0; i < this.detail.length; i += 4) {
       this.detail[i] = this.detail[i + 1] = this.detail[i + 2] = 0;
       if (polish) this.detail[i + 3] = 255;
@@ -462,11 +588,16 @@ export class DirtVolume {
       this.detailTexture.needsUpdate = true;
       this.detailDirty = false;
     }
+    if (this.spotDirty) {
+      this.spotTexture.needsUpdate = true;
+      this.spotDirty = false;
+    }
   }
 
   dispose() {
     this.texture.dispose();
     this.detailTexture.dispose();
+    this.spotTexture.dispose();
   }
 }
 
@@ -475,6 +606,7 @@ const DIRT_COMMON = /* glsl */ `
 precision highp sampler3D;
 uniform sampler3D uDirtTex;
 uniform sampler3D uDetailTex;
+uniform sampler3D uSpotTex;
 uniform vec3 uDirtMin;
 uniform vec3 uDirtSize;
 uniform float uTime;
@@ -550,6 +682,7 @@ vPart = aPart;`,
 vec3 dUVW = (vCarPos - uDirtMin) / uDirtSize;
 vec4 dirt = texture(uDirtTex, dUVW);
 vec4 det = texture(uDetailTex, dUVW);
+vec4 dSpot = texture(uSpotTex, dUVW); // r = kuş pisliği, g = böcek (b, a boş)
 float pPaint = 1.0 - step(0.5, vPart);
 float pGlass = step(0.5, vPart) * (1.0 - step(1.5, vPart));
 float pTire = step(1.5, vPart) * (1.0 - step(2.5, vPart));
@@ -603,6 +736,22 @@ vec3 mudCol = mix(vec3(0.13, 0.085, 0.045), vec3(0.36, 0.26, 0.15), mudDetail);
 mudCol = mix(mudCol, vec3(0.45, 0.36, 0.24), smoothstep(0.35, 0.0, abs(mudM - 0.55)) * 0.35);
 diffuseColor.rgb = mix(diffuseColor.rgb, mudCol, mudM);
 
+// Kuş pisliği: beyazımsı-gri, düzensiz kenarlı, içinde koyu benekler; köpükle yumuşamışı daha soluk ve ıslak
+float birdN = dNoise(vCarPos * 38.0 + 4.0);
+// Gürültü çarpımsal: leke olmayan yerde (r = 0) hiç görünmez
+float birdM = pDirt * smoothstep(0.16, 0.38, dSpot.r * (0.7 + birdN * 0.6 + (dN2 - 0.5) * 0.2));
+vec3 birdCol = mix(vec3(0.88, 0.87, 0.82), vec3(0.6, 0.58, 0.53), birdN);
+birdCol = mix(birdCol, vec3(0.2, 0.19, 0.15), smoothstep(0.66, 0.8, dNoise(vCarPos * 85.0 + 1.0)) * 0.7);
+float birdSoft = 1.0 - smoothstep(0.45, 0.6, dSpot.r);
+diffuseColor.rgb = mix(diffuseColor.rgb, birdCol, birdM * (0.95 - birdSoft * 0.3));
+
+// Böcek lekesi: küçük koyu sarı / siyah noktacıklar
+float bugCell = dHash(floor(vCarPos * 95.0));
+float bugDots = smoothstep(0.6, 0.72, dNoise(vCarPos * 95.0 + 2.0));
+float bugM = pDirt * smoothstep(0.1, 0.35, dSpot.g) * bugDots;
+vec3 bugCol = mix(vec3(0.05, 0.04, 0.02), vec3(0.62, 0.5, 0.1), step(0.55, bugCell));
+diffuseColor.rgb = mix(diffuseColor.rgb, bugCol, bugM * 0.92);
+
 // Islaklık: renk koyulaşır
 diffuseColor.rgb *= 1.0 - wetM * 0.25 - dropM * 0.1;
 
@@ -627,6 +776,8 @@ roughnessFactor = mix(roughnessFactor, 0.55, glassM);
 roughnessFactor *= 1.0 - shineM * 0.65;
 roughnessFactor = mix(roughnessFactor, max(roughnessFactor, 0.78), stainM * 0.85);
 roughnessFactor = mix(roughnessFactor, 0.97, mudM);
+roughnessFactor = mix(roughnessFactor, 0.88 - birdSoft * 0.4, birdM);
+roughnessFactor = mix(roughnessFactor, 0.55, bugM);
 roughnessFactor = mix(roughnessFactor, 0.05, max(wetM * 0.55, dropM) * (1.0 - foamM));
 roughnessFactor = mix(roughnessFactor, 0.62, foamM);
 `,
@@ -639,7 +790,7 @@ metalnessFactor = mix(metalnessFactor, 0.45, pPaint);
 metalnessFactor = mix(metalnessFactor, 0.0, clamp(pGlass + pTire, 0.0, 1.0));
 metalnessFactor = mix(metalnessFactor, 0.95, pRim);
 #endif
-metalnessFactor *= 1.0 - max(max(mudM, foamM), dustM * 0.8);
+metalnessFactor *= 1.0 - max(max(mudM, foamM), max(dustM * 0.8, birdM));
 `,
       )
       .replace(
@@ -653,6 +804,9 @@ float needPolish = uReq.w * pPaint * (1.0 - step(0.75, det.a)) * (1.0 - remain);
 float pulse = 0.55 + 0.45 * sin(uTime * 7.0);
 vec3 hl = remain * vec3(1.0, 0.42, 0.05) + needPolish * vec3(1.0, 0.8, 0.15)
         + pDirt * step(0.18, dirt.b) * (1.0 - remain) * (1.0 - needPolish) * vec3(0.1, 0.55, 1.0);
+// Kuş pisliği ve böcek lekesi mor vurgulanır
+float spotRemain = pDirt * max(step(0.12, dSpot.r), step(0.12, dSpot.g));
+hl = mix(hl, vec3(0.8, 0.3, 1.0), spotRemain);
 totalEmissiveRadiance += uHighlight * hl * pulse * 0.9;
 totalEmissiveRadiance += dropM * (1.0 - foamM) * vec3(0.022, 0.026, 0.03);
 // Cilalı boyada metalik pul parıltısı
@@ -669,7 +823,7 @@ totalEmissiveRadiance += band * vec3(1.0, 0.97, 0.9) * 1.4;
         '#include <lights_physical_fragment>',
         /* glsl */ `#include <lights_physical_fragment>
 #ifdef USE_CLEARCOAT
-  material.clearcoat *= 1.0 - max(max(mudM, stainM * 0.85), foamM);
+  material.clearcoat *= 1.0 - max(max(mudM, stainM * 0.85), max(foamM, birdM));
   material.clearcoat = mix(material.clearcoat, 1.0, shineM * (1.0 - mudM) * (1.0 - stainM));
   material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.0, shineM);
   material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.02, dropM);
@@ -680,6 +834,6 @@ totalEmissiveRadiance += band * vec3(1.0, 0.97, 0.9) * 1.4;
 
     material.userData.shader = shader;
   };
-  material.customProgramCacheKey = () => `dirt-v4-${material.type}-${tuneParts ? 1 : 0}`;
+  material.customProgramCacheKey = () => `dirt-v5-${material.type}-${tuneParts ? 1 : 0}`;
   material.needsUpdate = true;
 }
