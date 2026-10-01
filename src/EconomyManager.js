@@ -17,6 +17,8 @@ const COMMENTS = {
   2: ['Hâlâ kirli yerler var…', 'Bu parayı hak etmedi bence.'],
   1: ['Bu mu yıkandı?! Bir daha gelmem.', 'Hiç memnun kalmadım.'],
 };
+/** Kuş pisliği kuruyana kadar beklenen araçlar için yorumlar */
+const ETCHED_COMMENTS = ['Kuş pisliği kurumuş, boyam ne olacak?', 'Kaputtaki kuş pisliğini neden hemen almadınız?'];
 
 export const SHOP_LEVEL_NAMES = ['Basit Garaj', 'Yenilenmiş Garaj', 'Neon Detailing Stüdyosu'];
 
@@ -224,15 +226,18 @@ export class EconomyManager {
     return TABLE.shampooMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]) * this.repMult;
   }
 
-  /** Teslim edilen iş için müşteri puanı (1–5) */
-  rate(q) {
+  /** Teslim edilen iş için müşteri puanı (1–5). etched: kuş pisliği kurudu (-1 yıldız) */
+  rate(q, etched = false) {
     const c = this.customer;
+    let stars;
     if (q.complete) {
       const late = c.elapsed / c.target;
-      return late <= 1 ? 5 : late <= 1.5 ? 4 : 3;
+      stars = late <= 1 ? 5 : late <= 1.5 ? 4 : 3;
+    } else {
+      const clean = 1 - q.missing / 100;
+      stars = clean >= 0.9 ? 3 : clean >= 0.7 ? 2 : 1;
     }
-    const clean = 1 - q.missing / 100;
-    return clean >= 0.9 ? 3 : clean >= 0.7 ? 2 : 1;
+    return etched ? Math.max(1, stars - 1) : stars;
   }
 
   get dayOver() {
@@ -274,12 +279,12 @@ export class EconomyManager {
     return { total: Math.max(0, full - penalty), tip: Math.round(tip * this.multiplier), missing, penalty, complete };
   }
 
-  /** Aracı teslim et ve ödemeyi al. Dönüş: quote() */
-  payout(progress = 1) {
+  /** Aracı teslim et ve ödemeyi al. etched: kuş pisliği kurudu. Dönüş: quote() */
+  payout(progress = 1, { etched = false } = {}) {
     const q = this.quote(progress);
     if (!q) return null;
-    q.stars = this.rate(q);
-    const pool = COMMENTS[q.stars];
+    q.stars = this.rate(q, etched);
+    const pool = etched ? ETCHED_COMMENTS : COMMENTS[q.stars];
     q.comment = pool[(Math.random() * pool.length) | 0];
     const st = this.state;
     const prevRep = st.rep;
