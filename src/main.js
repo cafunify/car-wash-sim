@@ -677,7 +677,8 @@ class Game {
     this.hud.setProgress(total, steps, current, done);
     this.lastStats = { ...s, steps, current, total };
     this.audio.setDrips(Math.min(1, (1 - s.dry) * 1.5));
-    this.updateBirdTimer(car, s, 0.1);
+    // Duraklatma ve mağazadayken kuş pisliği kurumaz (müşteri zamanlayıcısı gibi)
+    if (this.active || this.debugPlay) this.updateBirdTimer(car, s, 0.1);
     this.guide(current, s);
     if (done) this.onCarWashed();
   }
