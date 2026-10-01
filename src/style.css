@@ -707,3 +707,9 @@ body.free-mouse #crosshair { transition: none; }
   .report-card { padding: 18px; }
   .report-head h2 { font-size: 24px; }
 }
+/* Alçak ekranlarda teslim kartı alt ortadaki alet paneline binmesin */
+@media (max-height: 680px) {
+  #delivery-card { top: 150px; width: 230px; }
+  .dc-body { padding: 8px 10px 10px; }
+  .dc-comment { margin: 4px 0 6px; font-size: 12px; }
+}
