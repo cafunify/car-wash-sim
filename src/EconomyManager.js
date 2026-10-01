@@ -6,6 +6,17 @@ import { availablePackages, PACKAGES } from './Packages.js';
 
 const SAVE_KEY = 'parilti-oto-yikama-v1';
 const START_MONEY = 0;
+export const CARS_PER_DAY = 6;
+const START_REP = 3;
+
+/** Müşteri yorumları: yıldız sayısına göre */
+const COMMENTS = {
+  5: ['Vay be, yeni gibi olmuş! ✨', 'Kendi arabamı tanıyamadım!', 'Ayna gibi parlıyor, harika iş!', 'Kesinlikle yine geleceğim.'],
+  4: ['Tertemiz olmuş, biraz bekledim ama değdi.', 'Güzel iş, eline sağlık.', 'Gayet iyi, teşekkürler.'],
+  3: ['Fena değil ama daha iyisini beklerdim.', 'İdare eder.', 'Biraz uzun sürdü açıkçası.'],
+  2: ['Hâlâ kirli yerler var…', 'Bu parayı hak etmedi bence.'],
+  1: ['Bu mu yıkandı?! Bir daha gelmem.', 'Hiç memnun kalmadım.'],
+};
 
 export const SHOP_LEVEL_NAMES = ['Basit Garaj', 'Yenilenmiş Garaj', 'Neon Detailing Stüdyosu'];
 
@@ -121,15 +132,21 @@ export class EconomyManager {
     });
     this.hud.setMoney(this.state.money, false);
     this.hud.setWashed(this.state.washed);
+    this.hud.setDay(this.state.day, this.state.today.cars, CARS_PER_DAY, this.state.rep);
   }
 
   // ---------------------------------------------------------------- kayıt
   defaultState() {
     return {
       money: START_MONEY, washed: 0, totalEarned: 0,
+      rep: START_REP, day: 1, today: this.freshDay(START_REP),
       levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, pinkfoam: 0, shop: 0 },
       settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', fps: false, minimap: true },
     };
+  }
+
+  freshDay(rep) {
+    return { cars: 0, earned: 0, tips: 0, stars: [], repStart: rep };
   }
 
   load() {
@@ -198,8 +215,36 @@ export class EconomyManager {
     this.hud.setCustomer(car.customer, car.def.name, this.estimatePay(car.def.pay * pkg.mult), pkg);
   }
 
+  /** İtibar (1–5 yıldız) ücreti etkiler: 3 yıldız ×1, 5 yıldız ×1.1, 1 yıldız ×0.9 */
+  get repMult() {
+    return 0.85 + this.state.rep * 0.05;
+  }
+
   get multiplier() {
-    return TABLE.shampooMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]);
+    return TABLE.shampooMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]) * this.repMult;
+  }
+
+  /** Teslim edilen iş için müşteri puanı (1–5) */
+  rate(q) {
+    const c = this.customer;
+    if (q.complete) {
+      const late = c.elapsed / c.target;
+      return late <= 1 ? 5 : late <= 1.5 ? 4 : 3;
+    }
+    const clean = 1 - q.missing / 100;
+    return clean >= 0.9 ? 3 : clean >= 0.7 ? 2 : 1;
+  }
+
+  get dayOver() {
+    return this.state.today.cars >= CARS_PER_DAY;
+  }
+
+  /** Gün sonu raporunu kapat, yeni güne başla */
+  startNextDay() {
+    this.state.day += 1;
+    this.state.today = this.freshDay(this.state.rep);
+    this.save();
+    this.hud.setDay(this.state.day, 0, CARS_PER_DAY, this.state.rep);
   }
 
   estimatePay(base) {
@@ -233,10 +278,22 @@ export class EconomyManager {
   payout(progress = 1) {
     const q = this.quote(progress);
     if (!q) return null;
-    this.state.money += q.total;
-    this.state.totalEarned += q.total;
-    this.state.washed += 1;
+    q.stars = this.rate(q);
+    const pool = COMMENTS[q.stars];
+    q.comment = pool[(Math.random() * pool.length) | 0];
+    const st = this.state;
+    const prevRep = st.rep;
+    st.rep = Math.min(5, Math.max(1, st.rep + (q.stars - st.rep) * 0.2));
+    q.repDelta = st.rep - prevRep;
+    st.money += q.total;
+    st.totalEarned += q.total;
+    st.washed += 1;
+    st.today.cars += 1;
+    st.today.earned += q.total;
+    st.today.tips += q.tip;
+    st.today.stars.push(q.stars);
     this.save();
+    this.hud.setDay(st.day, st.today.cars, CARS_PER_DAY, st.rep);
     this.customer = null;
 
     this.hud.setMoney(this.state.money, true);

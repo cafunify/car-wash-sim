@@ -10,11 +10,12 @@ import { Environment, WALK_BOUNDS } from './Environment.js';
 import { CarManager } from './CarManager.js';
 import { Effects } from './Particles.js';
 import { Tools, TOOL_DEFS, toolIndex } from './Tools.js';
-import { EconomyManager, SHOP_LEVEL_NAMES } from './EconomyManager.js';
+import { EconomyManager, SHOP_LEVEL_NAMES, CARS_PER_DAY } from './EconomyManager.js';
 import { HUD } from './HUD.js';
 import { AudioManager } from './Audio.js';
 import { ToolRack } from './ToolRack.js';
 import { Minimap } from './Minimap.js';
+import { Snapshot } from './Snapshot.js';
 import { PACKAGES, STEPS, pickPackage, packageProgress } from './Packages.js';
 
 const EYE_HEIGHT = 1.68;
@@ -96,8 +97,13 @@ class Game {
       renderer,
       camera,
       onArrived: (car) => this.onCarArrived(car),
-      onLeft: () => (this.waitTimer = 1.2),
+      onLeft: () => this.onCarLeft(),
     });
+    this.snapshot = new Snapshot(renderer, scene);
+    this.dayEntries = [];
+    this.pendingShot = null;
+    // Gün bitmiş ama rapor kapatılmadan sayfa yenilendiyse yeni güne geç
+    if (this.economy.dayOver) this.economy.startNextDay();
     this.tools = new Tools({
       camera,
       scene,
@@ -133,7 +139,7 @@ class Game {
 
   // ---------------------------------------------------------------- olaylar
   spawnCar() {
-    const pkg = pickPackage(this.economy.owns);
+    const pkg = pickPackage(this.economy.owns, this.economy.state.rep);
     this.cars.spawn(this.economy.shopLevel, pkg);
     this.applyCosmetics();
     this.hud.setPackage(pkg);
@@ -152,6 +158,7 @@ class Game {
 
   onCarArrived(car) {
     this.economy.startCustomer(car);
+    this.pendingShot = { kind: 'before', car };
     this.audio.carArrive();
     const steps = car.package.steps.map((id) => STEPS[id].label).join(' ➔ ');
     this.hud.message(`<b>${car.customer}</b> ${car.def.name} ile geldi!<br><small>${car.package.name}: ${steps}</small>`, 4.5);
@@ -162,6 +169,8 @@ class Game {
     const car = this.cars.car;
     const res = this.economy.payout(progress);
     this.deliverArmed = 0;
+    // "Sonra" fotoğrafı bu karenin sonunda çekilir, teslim kartı onunla açılır
+    if (res) this.pendingShot = { kind: 'after', car, res };
     this.rack.setHighlight(null);
     if (res?.complete) {
       this.cars.complete(true);
@@ -175,6 +184,55 @@ class Game {
       this.hud.toast(`+$${res.total}`, `Erken teslim · %${100 - res.missing} temiz · kesinti -$${res.penalty}`, 'warn');
       this.hud.setStepHint(`${car.customer} aracını eksik temizlikle teslim aldı`);
     }
+  }
+
+  /** Kare sonunda (ana çizimden önce) bekleyen önce/sonra fotoğrafını çek */
+  takePendingShot() {
+    const shot = this.pendingShot;
+    if (!shot) return;
+    this.pendingShot = null;
+    const fx = this.effects;
+    const hide = [this.tools.view, this.tools.cloth?.mesh, fx.water.points, fx.foam.points, fx.sparkle.points, fx.waterJet.mesh, fx.foamJet.mesh];
+    const img = this.snapshot.capture(shot.car, hide);
+    if (shot.kind === 'before') {
+      shot.car.beforeShot = img;
+      return;
+    }
+    const { car, res } = shot;
+    this.dayEntries.push({ after: img, customer: car.customer, carName: car.def.name, stars: res.stars, total: res.total, pkg: car.package });
+    this.hud.showDelivery({
+      before: car.beforeShot, after: img, customer: car.customer, carName: car.def.name,
+      stars: res.stars, comment: res.comment, total: res.total, tip: res.tip, repDelta: res.repDelta,
+    });
+  }
+
+  /** Araç çıktı: gün bittiyse rapor, değilse sıradaki müşteri */
+  onCarLeft() {
+    if (this.economy.dayOver) this.endDay();
+    else this.waitTimer = 1.2;
+  }
+
+  endDay() {
+    this.dayEnded = true;
+    this.firing = false;
+    this.keys.clear();
+    this.audio.complete();
+    const st = this.economy.state;
+    this.hud.showDayReport({ day: st.day, today: st.today, rep: st.rep, entries: this.dayEntries, perDay: CARS_PER_DAY });
+    if (this.controls.isLocked) this.controls.unlock();
+    else this.freeActive = false;
+  }
+
+  startNextDay() {
+    this.dayEnded = false;
+    this.dayEntries = [];
+    this.hud.hideDayReport();
+    this.economy.startNextDay();
+    this.audio.click();
+    if (this.freeMode) this.enterFree();
+    else this.requestLock();
+    this.waitTimer = 1.2;
+    this.hud.message(`☀ Gün ${this.economy.state.day} başladı<br><small>Bugün ${CARS_PER_DAY} müşteri gelecek · itibarın ${this.economy.state.rep.toFixed(1)} ★</small>`, 3.5);
   }
 
   /** T: erken teslim (ilk basışta ücret önizlemesi, ikinci basışta onay) */
@@ -366,7 +424,13 @@ class Game {
     this.controls.addEventListener('unlock', () => {
       this.firing = false;
       this.keys.clear();
-      if (!this.economy.shopOpen) this.showStart('Devam Et');
+      if (!this.economy.shopOpen && !this.dayEnded) this.showStart('Devam Et');
+    });
+    document.getElementById('report-next').addEventListener('click', () => this.startNextDay());
+    document.getElementById('report-shop').addEventListener('click', () => {
+      this.hud.hideDayReport();
+      this.economy.openShop();
+      this.audio.click();
     });
 
     document.getElementById('shop-close').addEventListener('click', () => this.closeShop());
@@ -512,6 +576,11 @@ class Game {
   closeShop() {
     this.economy.closeShop();
     this.audio.click();
+    // Gün sonu raporundan açıldıysa rapora dön
+    if (this.dayEnded) {
+      document.getElementById('day-report').classList.remove('hidden');
+      return;
+    }
     if (this.freeMode) {
       this.freeActive = true;
       return;
@@ -519,7 +588,7 @@ class Game {
     // Tarayıcı hemen tekrar kilitlemeye izin vermeyebilir; başarısız olursa başlangıç ekranı görünür
     this.requestLock();
     setTimeout(() => {
-      if (!this.active && !this.economy.shopOpen) this.showStart('Devam Et');
+      if (!this.active && !this.economy.shopOpen && !this.dayEnded) this.showStart('Devam Et');
     }, 400);
   }
 
@@ -682,6 +751,7 @@ class Game {
     this._yaw.setFromQuaternion(this.camera.quaternion);
     this.minimap.update(dt, this.cars.isWashable ? this.cars.car : null,
       { x: this.camera.position.x, z: this.camera.position.z, yaw: this._yaw.y });
+    this.takePendingShot();
     this.composer.render();
   }
 
@@ -691,6 +761,7 @@ class Game {
       instance: this,
       cleanAll: () => this.cars.cleanAll(),
       addMoney: (n = 1000) => this.economy.addMoney(n),
+      endDay: () => this.endDay(),
       setLevel: (l) => this.applyLevel(l),
       stats: () => this.lastStats,
       play: (on = true) => (this.debugPlay = on),

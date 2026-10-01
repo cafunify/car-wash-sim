@@ -55,10 +55,12 @@ export function availablePackages(owns) {
   return Object.values(PACKAGES).filter((p) => p.requires.every(owns));
 }
 
-/** Müşterinin isteyeceği paketi seç (açık olanlardan) */
-export function pickPackage(owns) {
+/** Müşterinin isteyeceği paketi seç (açık olanlardan; rep: 1–5 yıldız itibar) */
+export function pickPackage(owns, rep = 3) {
   const list = availablePackages(owns);
-  const weights = { standart: 1, detayli: 1.1, premium: 0.9 };
+  // İtibar yükseldikçe pahalı paketler daha sık istenir
+  const k = rep / 3;
+  const weights = { standart: 1, detayli: 1.1 * k, premium: 0.9 * k * k };
   let r = Math.random() * list.reduce((a, p) => a + weights[p.id], 0);
   for (const p of list) {
     r -= weights[p.id];
