@@ -399,17 +399,62 @@ body.free-mouse #crosshair { transition: none; }
   padding: 16px;
 }
 
-#loading { z-index: 20; background: #05070c; gap: 14px; align-content: center; }
-#loading p { color: var(--muted); margin: 0; }
-.spinner {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: 4px solid rgba(255, 255, 255, 0.12);
-  border-top-color: var(--accent);
-  animation: spin 0.9s linear infinite;
+/* Açılışta başlangıç ekranı yükleme göstergesiyle birlikte; opak zemin, hazır olunca normale döner */
+#start-screen.loading { background: radial-gradient(ellipse at 50% 30%, #101a30, #05070c 70%); backdrop-filter: none; z-index: 20; }
+.btn-primary:disabled, .btn-ghost:disabled { opacity: 0.55; cursor: progress; transform: none; box-shadow: none; }
+
+/* ------------------------------------------------------------------ Yükleme göstergesi */
+.loader { margin: 0 0 22px; transition: opacity 0.5s, max-height 0.6s, margin 0.6s; max-height: 260px; overflow: hidden; }
+.loader.done { opacity: 0; max-height: 0; margin: 0; }
+.loader-stage { position: relative; width: 240px; height: 90px; margin: 0 auto 14px; }
+.lc { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lc-clean { --body: #35d0ff; --glass: #123a52; --rim: #cfd8e6; filter: drop-shadow(0 0 14px rgba(53, 208, 255, 0.45)); }
+.lc-dirty { --body: #6b5a46; --glass: #3d3429; --rim: #54483a; animation: carDirt 3.6s ease-in-out infinite; }
+.lc-shine {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 26px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  transform: skewX(-18deg); opacity: 0; animation: carShine 3.6s ease-in-out infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes carDirt {
+  0%, 6% { clip-path: inset(0 0 0 0); }
+  58%, 90% { clip-path: inset(0 0 0 100%); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+@keyframes carShine {
+  0%, 6% { transform: translateX(-10px) skewX(-18deg); opacity: 0; }
+  12% { opacity: 1; }
+  54% { opacity: 1; }
+  58% { transform: translateX(236px) skewX(-18deg); opacity: 0; }
+  100% { transform: translateX(236px) skewX(-18deg); opacity: 0; }
+}
+.bub { position: absolute; bottom: 6px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.55); background: rgba(150, 225, 255, 0.12); opacity: 0; animation: bubUp 3.2s ease-in infinite; }
+.b1 { left: 14%; width: 9px; height: 9px; animation-delay: 0s; }
+.b2 { left: 30%; width: 6px; height: 6px; animation-delay: 0.7s; }
+.b3 { left: 46%; width: 11px; height: 11px; animation-delay: 1.4s; border-color: rgba(255, 79, 216, 0.6); }
+.b4 { left: 62%; width: 7px; height: 7px; animation-delay: 0.3s; }
+.b5 { left: 76%; width: 10px; height: 10px; animation-delay: 1.9s; border-color: rgba(255, 79, 216, 0.6); }
+.b6 { left: 90%; width: 6px; height: 6px; animation-delay: 1.1s; }
+@keyframes bubUp {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { opacity: 0.9; }
+  100% { transform: translateY(-70px) scale(1.15); opacity: 0; }
+}
+.load-bar { height: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.load-bar i {
+  display: block; height: 100%; width: 0%; border-radius: 8px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+  background-size: 200% 100%; animation: barFlow 1.6s linear infinite; transition: width 0.45s ease-out;
+}
+@keyframes barFlow { to { background-position: -200% 0; } }
+.load-line { display: flex; justify-content: space-between; margin: 8px 2px 0; font-size: 13px; color: var(--muted); }
+.load-line b { color: var(--text); font-variant-numeric: tabular-nums; }
+.load-tip { min-height: 2.6em; margin: 12px 0 0; font-size: 14px; color: var(--text); transition: opacity 0.35s; }
+.load-tip.fade { opacity: 0; }
+.load-tip kbd { margin: 0 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .lc-dirty, .lc-shine, .bub, .load-bar i { animation: none; }
+  .lc-dirty { clip-path: inset(0 0 0 100%); }
+}
 
 .start-card, .shop-card {
   width: min(680px, 100%);

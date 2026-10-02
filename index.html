@@ -103,16 +103,38 @@
   </div>
 
   <!-- Başlangıç / duraklama ekranı -->
-  <div id="start-screen" class="overlay">
+  <div id="start-screen" class="overlay loading">
     <div class="start-card">
       <div class="logo">
         <span class="logo-sparkle">✦</span>
         <h1>PARILTI<span>OTO YIKAMA</span></h1>
       </div>
       <p class="tagline">Kirli arabaları pırıl pırıl yap, parayı topla, dükkânını büyüt.</p>
+
+      <!-- Yükleme: araç kirli → parlak döngüsü, gerçek ilerleme ve ipuçları (hazır olunca kapanır) -->
+      <div id="loader" class="loader">
+        <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+          <symbol id="car-shape" viewBox="0 0 240 90">
+            <path d="M8 64V52q0-7 9-9l33-5 26-22q5-5 13-5h58q9 0 15 6l21 21 34 6q13 2 13 14v7z" fill="var(--body)" />
+            <path d="M88 20l-21 20h46V16h-17q-6 0-8 4zm34-4v24h55l-19-19q-4-5-11-5z" fill="var(--glass)" />
+            <circle cx="60" cy="66" r="16" fill="#121723" /><circle cx="60" cy="66" r="7" fill="var(--rim)" />
+            <circle cx="184" cy="66" r="16" fill="#121723" /><circle cx="184" cy="66" r="7" fill="var(--rim)" />
+          </symbol>
+        </svg>
+        <div class="loader-stage" aria-hidden="true">
+          <svg class="lc lc-clean" viewBox="0 0 240 90"><use href="#car-shape" /></svg>
+          <svg class="lc lc-dirty" viewBox="0 0 240 90"><use href="#car-shape" /></svg>
+          <i class="lc-shine"></i>
+          <i class="bub b1"></i><i class="bub b2"></i><i class="bub b3"></i><i class="bub b4"></i><i class="bub b5"></i><i class="bub b6"></i>
+        </div>
+        <div class="load-bar"><i id="load-fill"></i></div>
+        <p class="load-line"><span id="load-stage">Hazırlanıyor…</span><b id="load-pct">0%</b></p>
+        <p id="load-tip" class="load-tip"></p>
+      </div>
+
       <div class="start-actions">
-        <button id="start-btn" class="btn-primary">Tıkla ve Başla</button>
-        <button class="btn-ghost open-settings">⚙ Ayarlar</button>
+        <button id="start-btn" class="btn-primary" disabled>Yükleniyor…</button>
+        <button class="btn-ghost open-settings" disabled>⚙ Ayarlar</button>
       </div>
       <div class="controls-grid">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Hareket</div>
@@ -213,11 +235,6 @@
         <button id="settings-close" class="btn-primary">Tamam</button>
       </div>
     </div>
-  </div>
-
-  <div id="loading" class="overlay">
-    <div class="spinner"></div>
-    <p>Garaj hazırlanıyor…</p>
   </div>
 
   <script type="module" src="/src/main.js"></script>
