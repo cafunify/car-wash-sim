@@ -1,0 +1,42 @@
+name: Release
+
+# main'e her birleşmede package.json'daki sürüm için henüz yayın yoksa GitHub Release oluşturur.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.v.outputs.version }}" >/dev/null 2>&1; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.exists.outputs.exists == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.exists.outputs.exists == 'false'
+        run: |
+          npm ci
+          npm run build
+          (cd dist && zip -qr "../parilti-oto-yikama-v${{ steps.v.outputs.version }}.zip" .)
+      - if: steps.exists.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          awk -v v="## v$VERSION" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Sürüm v$VERSION" > notes.md
+          gh release create "v$VERSION" "parilti-oto-yikama-v$VERSION.zip" \
+            --target "$GITHUB_SHA" --title "v$VERSION" --notes-file notes.md
