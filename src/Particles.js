@@ -348,17 +348,17 @@ export class Effects {
 
   sprayFoam(from, dir, hit, dt, right) {
     const dist = hit ? from.distanceTo(hit.point) : 4;
-    const w = 0.04 + dist * 0.11;
-    this.foamJet.set(from, dir, dist, w, w * 0.8, right, 0.03);
+    // Su tabancası gibi yatay yelpaze: yanlara geniş, dikeyde ince
+    const spread = 0.16;
+    const w = 0.05 + dist * spread;
+    this.foamJet.set(from, dir, dist, w, 0.016 + dist * 0.02, right, 0.03);
     const count = Math.ceil(dt * 160 * this.density);
     const speed = 8;
     for (let i = 0; i < count; i++) {
-      const spread = 0.14;
-      this._v.set(
-        dir.x + (Math.random() - 0.5) * spread,
-        dir.y + (Math.random() - 0.5) * spread,
-        dir.z + (Math.random() - 0.5) * spread,
-      ).normalize().multiplyScalar(speed * (0.85 + Math.random() * 0.3));
+      const lateral = (Math.random() - 0.5) * 2 * spread;
+      this._v.copy(dir).addScaledVector(right, lateral);
+      this._v.y += (Math.random() - 0.5) * spread * 0.25;
+      this._v.normalize().multiplyScalar(speed * (0.85 + Math.random() * 0.3));
       this.foam.emit(from, this._v, {
         life: hit ? dist / speed : 0.5,
         size: 0.035 + Math.random() * 0.04,

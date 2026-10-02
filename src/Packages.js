@@ -12,6 +12,8 @@
 export const STEPS = {
   mud: { label: 'Su', long: 'Su ile çamuru sök', tool: 'hose', color: '#b07a4a', threshold: 0.97 },
   foam: { label: 'Köpük', long: 'Aracı köpükle kapla', tool: 'foam', color: '#f4f7ff', threshold: 0.85 },
+  // Kuş pisliği + böcek lekesi: sadece bu kirleri getiren araçlarda pakete girer (bkz. packageFor)
+  spots: { label: 'Kuş/Böcek', long: 'Kuş pisliği ve böcek lekelerini köpükle yumuşat, su ile sök', tool: 'hose', color: '#c76bff', threshold: 0.95 },
   rinse: { label: 'Durulama', long: 'Su ile köpüğü ve lekeleri durula', tool: 'hose', color: '#35d0ff', threshold: 0.96 },
   glass: { label: 'Cam', long: 'Camları temizle', tool: 'glass', color: '#8fe3ff', threshold: 0.94 },
   dry: { label: 'Kurulama', long: 'Havluyla su lekelerini kurula', tool: 'towel', color: '#6fc3ff', threshold: 0.95 },
@@ -26,8 +28,8 @@ export const PACKAGES = {
     name: 'Standart Temizlik',
     color: '#35d0ff',
     mult: 1,
-    time: 1,
-    steps: ['mud', 'foam', 'rinse'],
+    time: 1.6,
+    steps: ['mud', 'foam', 'spots', 'rinse'],
     requires: [],
   },
   detayli: {
@@ -36,7 +38,7 @@ export const PACKAGES = {
     color: '#3ee48a',
     mult: 1.7,
     time: 1.5,
-    steps: ['mud', 'foam', 'rinse', 'glass', 'dry', 'tires'],
+    steps: ['mud', 'foam', 'spots', 'rinse', 'glass', 'dry', 'tires'],
     requires: ['glasscleaner', 'tireshine'],
   },
   premium: {
@@ -45,7 +47,7 @@ export const PACKAGES = {
     color: '#ffd35a',
     mult: 2.6,
     time: 2,
-    steps: ['mud', 'foam', 'rinse', 'glass', 'dry', 'rims', 'tires', 'polish'],
+    steps: ['mud', 'foam', 'spots', 'rinse', 'glass', 'dry', 'rims', 'tires', 'polish'],
     requires: ['glasscleaner', 'tireshine', 'rimcleaner', 'polisher'],
   },
 };
@@ -55,10 +57,20 @@ export function availablePackages(owns) {
   return Object.values(PACKAGES).filter((p) => p.requires.every(owns));
 }
 
-/** Müşterinin isteyeceği paketi seç (açık olanlardan) */
-export function pickPackage(owns) {
+/**
+ * Araca özel paket kopyası: araçta kuş pisliği / böcek lekesi yoksa "Kuş/Böcek" adımı çıkarılır
+ * (paket kimliği, adı ve çarpanı aynı kalır).
+ */
+export function packageFor(pkg, hasSpots) {
+  return hasSpots ? { ...pkg, steps: [...pkg.steps] } : { ...pkg, steps: pkg.steps.filter((id) => id !== 'spots') };
+}
+
+/** Müşterinin isteyeceği paketi seç (açık olanlardan; rep: 1–5 yıldız itibar) */
+export function pickPackage(owns, rep = 3) {
   const list = availablePackages(owns);
-  const weights = { standart: 1, detayli: 1.1, premium: 0.9 };
+  // İtibar yükseldikçe pahalı paketler daha sık istenir
+  const k = rep / 3;
+  const weights = { standart: 1, detayli: 1.1 * k, premium: 0.9 * k * k };
   let r = Math.random() * list.reduce((a, p) => a + weights[p.id], 0);
   for (const p of list) {
     r -= weights[p.id];
@@ -79,6 +91,8 @@ export function packageProgress(pkg, stats, latch) {
     foam: latch.foam ? 1 : Math.max(stats.foamCover, stats.stain >= STEPS.rinse.threshold ? 1 : 0),
     // Durulama: lekeler söküldü ve üzerinde köpük kalmadı
     rinse: latch.foam || stats.stain >= STEPS.rinse.threshold ? Math.min(stats.stain, 1 - stats.foam * 20) : 0,
+    // Kuş/Böcek: kayıtlı leke voxellerinin temiz oranı
+    spots: stats.spots ?? 1,
     glass: stats.glass,
     dry: stats.dry,
     rims: stats.rims,

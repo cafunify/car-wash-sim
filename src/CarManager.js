@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CAR_CATALOG, prepareGltfCar, buildProceduralCar, recolorPaint } from './CarModels.js';
 import { classifyCarParts, PART } from './CarParts.js';
-import { PACKAGES } from './Packages.js';
+import { PACKAGES, packageFor } from './Packages.js';
 import { DirtVolume, applyDirtShader } from './DirtVolume.js';
 
 const CUSTOMERS = [
@@ -17,6 +17,8 @@ export const EXIT_Z = 17;
 const SURFACE_SAMPLES = 2600;
 const PLAYER_EYE = 1.68;
 const REACH_OFFSET = 2.5;
+const BIRD_CHANCE = 0.55; // araçta kuş pisliği olma olasılığı
+const BUG_CHANCE = 0.6; // araçta böcek lekesi olma olasılığı
 
 const _v = new THREE.Vector3();
 const _n = new THREE.Vector3();
@@ -25,6 +27,8 @@ const _b = new THREE.Vector3();
 const _c = new THREE.Vector3();
 const _ab = new THREE.Vector3();
 const _ac = new THREE.Vector3();
+const _sp = new THREE.Vector3();
+const _sp2 = new THREE.Vector3();
 let _part = 0;
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
@@ -116,6 +120,12 @@ export class CarManager {
     materials.forEach((m) => applyDirtShader(m, volume.uniforms, { tuneParts: !!def.tune }));
     const samples = sampleReachable(surface);
     volume.setSurfaceSamples(samples.positions, samples.parts, samples.normals);
+    // Kuş pisliği ve böcek lekesi her araçta yok; olmayan araçta "Kuş/Böcek" adımı paketten çıkar
+    scatterSpots(volume, {
+      bird: Math.random() < BIRD_CHANCE ? 1 + ((Math.random() * 4) | 0) : 0,
+      bugs: Math.random() < BUG_CHANCE ? 25 + ((Math.random() * 35) | 0) : 0,
+    });
+    pkg = packageFor(pkg, volume.spotCenters.length > 0);
     const req = (id) => (pkg.steps.includes(id) ? 1 : 0);
     volume.uniforms.uReq.value.set(req('rims'), req('tires'), req('glass'), req('polish'));
 
@@ -281,6 +291,19 @@ export class CarManager {
     return out.copy(this.car.bounds).translate(this.car.root.position);
   }
 
+  /**
+   * Debug: aktif araca kuş pisliği / böcek lekesi ekle. Paket "Kuş/Böcek" adımını içermiyorsa
+   * köpükten sonraya eklenir. Dönüş: paket değişti mi (HUD adım listesi yenilenmeli)
+   */
+  addSpots(bird = 4, bugs = 40) {
+    const car = this.car;
+    if (!car || !scatterSpots(car.volume, { bird, bugs })) return false;
+    const steps = car.package.steps;
+    if (steps.includes('spots')) return false;
+    steps.splice(Math.max(0, steps.indexOf('foam')) + 1, 0, 'spots');
+    return true;
+  }
+
   cleanAll() {
     this.car?.volume.cleanAll(this.car.package.steps.includes('polish'));
   }
@@ -387,6 +410,43 @@ function firstHit({ tris, boxes }, ox, oy, oz, dx, dy, dz, maxT) {
     if (d > 1e-4 && d < best) best = d;
   }
   return best;
+}
+
+/**
+ * Noktasal kirleri erişilebilir yüzey örneklerinin üstüne serp:
+ *   kuş pisliği — üst yüzeyler (kaput, tavan, bagaj): yukarı bakan boya
+ *   böcek lekesi — ön yüz (tampon, ön cam, aynalar): öne bakan, aracın ön yarısındaki yüzeyler
+ * Dönüş: eklenen leke sayısı
+ */
+function scatterSpots(volume, { bird = 0, bugs = 0 }) {
+  const pos = volume.samplePos, nrm = volume.sampleNormals, parts = volume.sampleParts;
+  if (!pos || !nrm) return 0;
+  const { min, size } = volume;
+  const birdAt = [], bugAt = [];
+  for (let s = 0; s < parts.length; s++) {
+    const part = parts[s];
+    const ny = nrm[s * 3 + 1] / 127, nz = nrm[s * 3 + 2] / 127;
+    const h = (pos[s * 3 + 1] - min.y) / size.y;
+    const zn = (pos[s * 3 + 2] - min.z) / size.z; // 0 arka, 1 ön
+    if (part === PART.PAINT && ny > 0.8 && h > 0.4) birdAt.push(s);
+    if ((part === PART.PAINT || part === PART.GLASS || part === PART.TRIM) && nz > 0.4 && zn > 0.55) bugAt.push(s);
+  }
+  let added = 0;
+  for (let k = 0; k < bird && birdAt.length; k++, added++) {
+    _sp.fromArray(pos, birdAt[(Math.random() * birdAt.length) | 0] * 3);
+    volume.addSpot(_sp, 0.05 + Math.random() * 0.04, 0, 1);
+    // Çevresine birkaç küçük sıçrama (haritada ayrı leke sayılmaz)
+    const extra = 1 + ((Math.random() * 3) | 0);
+    for (let e = 0; e < extra; e++) {
+      _sp2.set(_sp.x + (Math.random() - 0.5) * 0.18, _sp.y, _sp.z + (Math.random() - 0.5) * 0.18);
+      volume.addSpot(_sp2, 0.03, 0, 0.85, false);
+    }
+  }
+  for (let k = 0; k < bugs && bugAt.length; k++, added++) {
+    _sp.fromArray(pos, bugAt[(Math.random() * bugAt.length) | 0] * 3);
+    volume.addSpot(_sp, 0.03 + Math.random() * 0.035, 1, 0.6 + Math.random() * 0.4);
+  }
+  return added;
 }
 
 /** Kir üretimini hızlandırmak için yüzeye yakın voxel maskesi */

@@ -170,8 +170,10 @@ export class Tools {
           const near = 1 - Math.min(0.55, Math.max(0, (hit.distance - 1.2) / def.range));
           const radius = this.economy.hoseRadius * (1 + hit.distance * 0.05);
           // Durulama: köpük akarken çözdüğü lekeyi de götürür (foamBoost)
+          // Kuş pisliği: köpükle yumuşamış kısmı hızla gider, kuru kabuk çok yavaş · böcek: köpükle hızlanır
           const res = this.carManager.paint(hit.point, radius, {
             mud: 1.2 * power * near, stain: 0.06 * power, foamBoost: 25 * this.economy.shampoo, wet: 1.3, foam: -3.0 * power, flow: 1,
+            bird: 1.6 * power * near, bugs: 0.1 * power,
           }, dt);
           if (res && res.foam > 0.2) bubbleRate = 0.35;
         }
@@ -260,7 +262,7 @@ export class Tools {
     // Havlu: araca değince açılıp yüzeye serilir
     if (def.kind === 'cloth') {
       if (active && hit && this.carManager.isWashable) {
-        this.cloth.place(hit, Math.sin(this.scrubPhase), time);
+        this.cloth.place(hit, this.scrubPhase, time, dt);
         model.visible = false;
         return;
       }

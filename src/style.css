@@ -606,3 +606,110 @@ body.free-mouse #crosshair { transition: none; }
   #keys-help { display: none; }
 }
 .toast.warn { color: #ffb45a; text-shadow: 0 3px 0 #6b3a00, 0 0 20px rgba(255, 170, 60, 0.5); }
+
+/* ------------------------------------------------------------------ Gün / itibar */
+#day-panel {
+  top: 98px;
+  right: 22px;
+  padding: 8px 12px;
+  min-width: 150px;
+  font-size: 13px;
+}
+.day-row { display: flex; justify-content: space-between; gap: 12px; }
+.day-row span { color: var(--muted); }
+.day-rep { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+.day-rep small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.star {
+  font-style: normal;
+  font-size: 15px;
+  background: linear-gradient(90deg, var(--gold) var(--f), rgba(255, 255, 255, 0.18) var(--f));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Teslim kartı */
+#delivery-card {
+  top: 170px;
+  right: 22px;
+  width: 300px;
+  overflow: hidden;
+  animation: dcIn 0.5s cubic-bezier(0.2, 0.8, 0.3, 1.2);
+}
+@keyframes dcIn { from { opacity: 0; transform: translateX(40px); } }
+.dc-photo { position: relative; aspect-ratio: 36 / 22; background: #0b0f1a; }
+.dc-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.dc-photo.no-photo { display: none; }
+.dc-after { clip-path: inset(0 100% 0 0); animation: dcWipe 1.6s 0.9s cubic-bezier(0.6, 0, 0.3, 1) forwards; }
+.dc-wipe {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
+  background: #fff; box-shadow: 0 0 12px 3px rgba(120, 220, 255, 0.9);
+  opacity: 0;
+  animation: dcLine 1.6s 0.9s cubic-bezier(0.6, 0, 0.3, 1) forwards;
+}
+@keyframes dcWipe { to { clip-path: inset(0 0 0 0); } }
+@keyframes dcLine { 0% { opacity: 1; left: 0; } 95% { opacity: 1; } 100% { opacity: 0; left: 100%; } }
+.dc-tag {
+  position: absolute; top: 8px; padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.55);
+}
+.dc-tag.before { left: 8px; color: #ffb45a; }
+.dc-tag.after { right: 8px; color: var(--accent); opacity: 0; animation: fadeIn 0.4s 2.3s forwards; }
+@keyframes fadeIn { to { opacity: 1; } }
+.dc-body { padding: 10px 12px 12px; }
+.dc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.dc-head .star { font-size: 17px; }
+.dc-comment { margin: 6px 0 8px; font-size: 13px; color: var(--muted); font-style: italic; }
+.dc-foot { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
+.dc-pay { font-weight: 800; color: var(--gold); font-size: 17px; }
+.dc-pay small { font-size: 11px; color: var(--muted); font-weight: 500; }
+.up { color: var(--good); }
+.down { color: #ff8a8a; }
+
+/* Gün sonu raporu */
+#day-report { z-index: 12; }
+.report-card {
+  width: min(860px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 28px;
+  border-radius: 22px;
+  background: rgba(12, 16, 28, 0.9);
+  border: 1px solid var(--border);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  animation: dcIn 0.5s ease;
+}
+.report-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.report-head small { color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; }
+.report-head h2 { margin: 4px 0 0; font-size: 30px; }
+.report-rep { text-align: right; }
+.report-rep .star { font-size: 26px; }
+.report-rep small { display: block; font-size: 13px; }
+.report-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 20px 0; }
+.report-stats div {
+  display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center;
+  padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border);
+}
+.report-stats span { grid-row: span 2; font-size: 22px; }
+.report-stats small { color: var(--muted); font-size: 12px; }
+.report-stats b { font-size: 18px; }
+.report-cars { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.report-cars figure { margin: 0; border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); }
+.report-cars img, .report-cars .ph { display: block; width: 100%; aspect-ratio: 36 / 22; object-fit: cover; background: #0b0f1a; }
+.report-cars figcaption { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 8px 10px; font-size: 12px; }
+.report-cars figcaption span { font-size: 11px; }
+.report-cars figcaption em { font-style: normal; }
+.report-cars figcaption i { font-style: normal; font-weight: 700; color: var(--gold); text-align: right; }
+.report-tip { color: var(--muted); font-size: 14px; margin: 18px 0 0; }
+.report-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 20px; }
+@media (max-width: 600px) {
+  .report-card { padding: 18px; }
+  .report-head h2 { font-size: 24px; }
+}
+/* Alçak ekranlarda teslim kartı alt ortadaki alet paneline binmesin */
+@media (max-height: 680px) {
+  #delivery-card { top: 150px; width: 230px; }
+  .dc-body { padding: 8px 10px 10px; }
+  .dc-comment { margin: 4px 0 6px; font-size: 12px; }
+}

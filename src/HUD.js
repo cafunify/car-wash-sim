@@ -147,6 +147,74 @@ export class HUD {
     this.$('washed-count').textContent = n;
   }
 
+  // ---------------------------------------------------------------- gün / itibar
+  setDay(day, cars, perDay, rep) {
+    this.$('day-label').textContent = `Gün ${day}`;
+    this.$('day-cars').textContent = `${cars}/${perDay} araç`;
+    this.$('rep-stars').innerHTML = starBar(rep);
+    this.$('rep-value').textContent = rep.toFixed(1);
+  }
+
+  /** Teslimde önce/sonra fotoğrafı, puan ve müşteri yorumu (oyunu durdurmaz) */
+  showDelivery({ before, after, customer, carName, stars, comment, total, tip, repDelta }) {
+    const card = this.$('delivery-card');
+    const photo = card.querySelector('.dc-photo');
+    photo.classList.toggle('no-photo', !before || !after);
+    card.querySelector('.dc-before').src = before || '';
+    card.querySelector('.dc-after').src = after || '';
+    card.querySelector('.dc-name').textContent = `${customer} · ${carName}`;
+    card.querySelector('.dc-stars').innerHTML = starBar(stars, true);
+    card.querySelector('.dc-comment').textContent = `“${comment}”`;
+    card.querySelector('.dc-pay').innerHTML = `+$${total}${tip > 0 ? ` <small>bahşiş $${tip}</small>` : ''}`;
+    const rd = card.querySelector('.dc-rep');
+    rd.textContent = `İtibar ${repDelta >= 0 ? '▲' : '▼'} ${Math.abs(repDelta).toFixed(2)}`;
+    rd.className = `dc-rep ${repDelta >= 0 ? 'up' : 'down'}`;
+    // Animasyonu baştan oynat
+    card.classList.add('hidden');
+    void card.offsetWidth;
+    card.classList.remove('hidden');
+    clearTimeout(this.deliveryTimer);
+    this.deliveryTimer = setTimeout(() => card.classList.add('hidden'), 7000);
+  }
+
+  /** Gün sonu raporu; entries: [{ after, customer, carName, stars, total, pkg }] */
+  showDayReport({ day, today, rep, entries, perDay }) {
+    const avg = today.stars.length ? today.stars.reduce((a, b) => a + b, 0) / today.stars.length : 0;
+    const delta = rep - today.repStart;
+    const perfect = today.stars.filter((s) => s === 5).length;
+    this.$('report-title').textContent = `Gün ${day} tamamlandı`;
+    this.$('report-rep-stars').innerHTML = starBar(rep);
+    const rd = this.$('report-rep-delta');
+    rd.textContent = `İtibar ${rep.toFixed(1)} (${delta >= 0 ? '+' : ''}${delta.toFixed(2)})`;
+    rd.className = delta >= 0 ? 'up' : 'down';
+    this.$('report-stats').innerHTML = [
+      ['💵', 'Kazanç', `$${today.earned.toLocaleString('tr-TR')}`],
+      ['⏱', 'Bahşiş', `$${today.tips.toLocaleString('tr-TR')}`],
+      ['🚗', 'Araç', `${today.cars}/${perDay}`],
+      ['⭐', 'Ortalama puan', avg.toFixed(1)],
+      ['✨', 'Kusursuz iş', `${perfect}`],
+    ].map(([i, l, v]) => `<div><span>${i}</span><small>${l}</small><b>${v}</b></div>`).join('');
+    this.$('report-cars').innerHTML = entries.map((e) => `
+      <figure>
+        ${e.after ? `<img src="${e.after}" alt="" />` : '<div class="ph"></div>'}
+        <figcaption><b>${e.customer}</b><span style="color:${e.pkg.color}">${e.pkg.name}</span>
+        <em>${starBar(e.stars, true)}</em><i>+$${e.total}</i></figcaption>
+      </figure>`).join('');
+    const tip = avg >= 4.5 ? 'Harika bir gün! Yüksek itibar daha pahalı paketler ve daha yüksek ücret getirir.'
+      : avg >= 3.5 ? 'İyi iş. Bahşiş süresi dolmadan eksiksiz teslim 5 yıldız getirir.'
+      : 'Erken teslim ve gecikmeler itibarını düşürüyor — eksik yer haritasına göz at.';
+    this.$('report-tip').textContent = tip;
+    this.$('day-report').classList.remove('hidden');
+  }
+
+  hideDayReport() {
+    this.$('day-report').classList.add('hidden');
+  }
+
+  get reportOpen() {
+    return !this.$('day-report').classList.contains('hidden');
+  }
+
   toast(text, sub = '', cls = '') {
     const el = document.createElement('div');
     el.className = `toast ${cls}`;
@@ -171,4 +239,14 @@ export class HUD {
       if (this.centerTimer <= 0) this.centerMsg.classList.remove('show');
     }
   }
+}
+
+/** 1–5 arası (kesirli) puanı yıldız dizisine çevir */
+function starBar(value, whole = false) {
+  let html = '';
+  for (let i = 1; i <= 5; i++) {
+    const fill = whole ? (value >= i ? 1 : 0) : Math.max(0, Math.min(1, value - (i - 1)));
+    html += `<i class="star" style="--f:${Math.round(fill * 100)}%">★</i>`;
+  }
+  return html;
 }

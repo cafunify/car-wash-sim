@@ -49,6 +49,28 @@
       <span id="money">0</span>
     </div>
     <div id="money-sub">Yıkanan: <b id="washed-count">0</b></div>
+    <div id="day-panel" class="panel">
+      <div class="day-row"><b id="day-label">Gün 1</b><span id="day-cars">0/6 araç</span></div>
+      <div class="day-rep" title="İtibar: yüksek itibar daha çok kazanç ve daha pahalı paket getirir">
+        <span id="rep-stars"></span><small id="rep-value">3.0</small>
+      </div>
+    </div>
+
+    <!-- Teslim kartı: önce / sonra -->
+    <div id="delivery-card" class="panel hidden">
+      <div class="dc-photo">
+        <img class="dc-before" alt="Önce" />
+        <img class="dc-after" alt="Sonra" />
+        <span class="dc-tag before">Önce</span>
+        <span class="dc-tag after">Sonra</span>
+        <i class="dc-wipe"></i>
+      </div>
+      <div class="dc-body">
+        <div class="dc-head"><b class="dc-name"></b><span class="dc-stars"></span></div>
+        <p class="dc-comment"></p>
+        <div class="dc-foot"><span class="dc-pay"></span><span class="dc-rep"></span></div>
+      </div>
+    </div>
 
     <!-- Alt orta: elindeki alet -->
     <div id="held-tool"></div>
@@ -70,7 +92,7 @@
       <div class="free-only"><kbd>Esc</kbd> Duraklat</div>
       <div><kbd>1</kbd><kbd>2</kbd> Su / Köpük</div>
       <div><kbd>E</kbd> Raftan al · <kbd>Q</kbd> bırak</div>
-      <div><kbd>C</kbd> Çömel · <kbd>T</kbd> Teslim et</div>
+      <div><kbd>C</kbd> Çömel/Kalk · <kbd>T</kbd> Teslim et</div>
       <div><kbd>Tab</kbd> Mağaza</div>
       <div><kbd>F</kbd> Kir tarayıcı</div>
       <div><kbd>M</kbd> Ses · <kbd>N</kbd> Müzik · <kbd>P</kbd> FPS</div>
@@ -101,7 +123,7 @@
         <div><kbd>E</kbd> Raftan alet al · <kbd>Q</kbd> bırak</div>
         <div><kbd>C</kbd> Çömel (etek, lastik, jant)</div>
         <div><kbd>Tab</kbd> Mağaza</div>
-        <div><kbd>F</kbd> Kalan kiri göster · <kbd>T</kbd> Erken teslim</div>
+        <div><kbd>F</kbd> Kalan kiri göster · <kbd>T</kbd> Teslim et (eksikse kesinti)</div>
         <div><kbd>N</kbd> Müzik · <kbd>P</kbd> FPS · <kbd>Esc</kbd> Menü</div>
       </div>
       <p class="tip">Su ile çamuru sök ➔ köpükle kapla ➔ su ile durula. Köpük lekeleri çözer, durulama onları götürür.
@@ -127,6 +149,26 @@
           <button class="btn-ghost open-settings">⚙ Ayarlar</button>
         </div>
         <button id="shop-close" class="btn-primary">Devam et <kbd>Tab</kbd></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gün sonu raporu -->
+  <div id="day-report" class="overlay hidden">
+    <div class="report-card">
+      <div class="report-head">
+        <div>
+          <small>Gün sonu raporu</small>
+          <h2 id="report-title">Gün 1 tamamlandı</h2>
+        </div>
+        <div class="report-rep"><span id="report-rep-stars"></span><small id="report-rep-delta"></small></div>
+      </div>
+      <div class="report-stats" id="report-stats"></div>
+      <div class="report-cars" id="report-cars"></div>
+      <p class="report-tip" id="report-tip"></p>
+      <div class="report-footer">
+        <button id="report-shop" class="btn-ghost">🛒 Mağaza</button>
+        <button id="report-next" class="btn-primary">Yeni güne başla ☀</button>
       </div>
     </div>
   </div>

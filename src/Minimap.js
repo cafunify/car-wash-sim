@@ -34,13 +34,14 @@ export class Minimap {
 
   /** Bir örnek noktanın takıldığı ilk adım (paketin sırasına göre) ya da null */
   issueOf(i, part, pkg, latch, volume) {
-    const d = volume.data, e = volume.detail;
+    const d = volume.data, e = volume.detail, sp = volume.spot;
     for (const id of pkg.steps) {
       switch (id) {
         case 'mud': if (d[i] >= T) return id; break;
         case 'foam':
           if (!latch.foam && (part === PART.PAINT || part === PART.GLASS || part === PART.TRIM) && d[i + 3] <= 70) return id;
           break;
+        case 'spots': if (sp[i] >= T || sp[i + 1] >= T) return id; break;
         case 'rinse': if (d[i + 1] >= T || d[i + 3] > T) return id; break;
         case 'glass': if (part === PART.GLASS && e[i + 2] >= T) return id; break;
         case 'dry': if (d[i + 2] >= T * 1.6) return id; break;
@@ -116,6 +117,23 @@ export class Minimap {
       }
     }
 
+    // Kuş pisliği / böcek lekeleri küçük oldukları için yüzey örneklerine pek düşmez:
+    // kalan her lekenin merkezini ayrıca, biraz daha büyük bir noktayla işaretle
+    if (car.package.steps.includes('spots')) {
+      let left = 0;
+      g.fillStyle = STEPS.spots.color;
+      for (const c of v.spotCenters) {
+        if (!v.spotRemains(c)) continue;
+        left++;
+        // Kuş pisliği üst yüzeyde (üst görünüş), böcek ön yüzde (yan görünüşler)
+        for (const view of c.ch === 0 ? views : views.slice(0, 2)) {
+          const [px, py] = view.map(c.x, c.y, c.z);
+          g.fillRect(view.ox + px - 2, view.oy + py - 2, 4, 4);
+        }
+      }
+      if (left || counts.spots) counts.spots = Math.max(left, 1);
+    }
+
     // Oyuncu: üst görünüşte ok
     if (player) {
       const lx = player.x - car.root.position.x, lz = player.z - car.root.position.z;
@@ -138,7 +156,11 @@ export class Minimap {
 
     const order = car.package.steps.filter((id) => counts[id]);
     this.legend.innerHTML = order.length
-      ? order.map((id) => `<span><i style="background:${STEPS[id].color}"></i>${STEPS[id].label} ${Math.round((counts[id] / idx.length) * 100) || '<1'}%</span>`).join('')
+      ? order.map((id) => {
+        // Noktasal kirlerde yüzde yerine kalan leke sayısı
+        const amount = id === 'spots' ? `${counts[id]} leke` : `${Math.round((counts[id] / idx.length) * 100) || '<1'}%`;
+        return `<span><i style="background:${STEPS[id].color}"></i>${STEPS[id].label} ${amount}</span>`;
+      }).join('')
       : '<span class="ok">Eksik yer yok ✓</span>';
   }
 }
