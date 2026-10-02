@@ -12,6 +12,7 @@ const CUSTOMERS = [
 
 export const ENTRY_Z = -16;
 export const PARK_Z = 0;
+const RECENT_CARS = 6; // bu kadar araç boyunca aynı model tekrar gelmez
 export const EXIT_Z = 17;
 
 const SURFACE_SAMPLES = 2600;
@@ -46,6 +47,7 @@ export class CarManager {
     this.templates = new Map();
     this.car = null;
     this.lastId = null;
+    this.recent = []; // son gelen araç kimlikleri (tekrarı azaltmak için)
     this.callbacks = { onArrived, onWashed, onLeft };
     this.highlight = 0;
     this.soakRate = 0.1; // köpüğün lekeyi çözme hızı (Premium Şampuan ile artar)
@@ -93,12 +95,17 @@ export class CarManager {
     const allowed = CAR_CATALOG.filter((d) => d.tier <= maxTier && d.id !== this.lastId);
     // Önce modeli inmiş olanlardan seç; hiçbiri inmediyse (ya da hepsi başarısızsa) prosedürel
     const ready = allowed.filter((d) => this.templates.has(d.id));
-    return this.pickFrom(ready.length ? ready : allowed);
+    const pool = ready.length ? ready : allowed;
+    // Son gelen araçları tekrar etme (çeşitlilik); havuz yetmezse en eskisinden başla
+    const fresh = pool.filter((d) => !this.recent.includes(d.id));
+    return this.pickFrom(fresh.length ? fresh : pool);
   }
 
   spawn(maxTier = 0, pkg = PACKAGES.standart, forceId) {
     const def = this.pickDef(maxTier, forceId);
     this.lastId = def.id;
+    this.recent.push(def.id);
+    if (this.recent.length > RECENT_CARS) this.recent.shift();
 
     const template = this.templates.get(def.id);
     const object = template ? prepareGltfCar(template, def) : buildProceduralCar(def.procedural);
