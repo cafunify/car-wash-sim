@@ -11,6 +11,7 @@ import { PART } from './CarParts.js';
  *   autoOrient — uzun ekseni Z'ye, farları +Z'ye çevir (yoksa `rotY` ile elle çevir)
  *   atlas      — 'kenney': renk atlası UV'sinden cam/trim ayrımı
  *   tune       — model PBR açısından zayıfsa parça bazlı gerçekçi yüzey uygula
+ *   dropMeshes — bozuk/gereksiz mesh adları (regex); modelden çıkarılır (ör. sınırı bozan sapık köşeli rozet)
  * Dokusuz boya malzemesine her müşteride rastgele metalik renk verilir.
  */
 /**
@@ -38,11 +39,10 @@ export const CAR_CATALOG = [
   DZ('kiri10', "Kiri '10", 'kiri_10', { pay: 50, time: 150, tier: 0 }),
   DZ('lolita91', "Lolita '91", 'lolita_91', { pay: 50, time: 150, tier: 0 }),
   DZ('olympic95', "Olympic '95", 'olympic_95', { pay: 55, time: 155, tier: 0 }),
-  DZ('chapman73', "Chapman '73", 'chapman_73', { pay: 60, time: 160, tier: 0 }),
   DZ('urban10', "Urban '10", 'urban_10', { pay: 65, time: 165, tier: 0 }),
   DZ('murphy92', "Murphy '92", 'murphy_92', { pay: 65, time: 170, tier: 0 }),
   DZ('milano95', "Milano '95", 'milano_95', { pay: 70, time: 170, tier: 0 }),
-  DZ('sigil07', "Sigil '07", 'sigil_07', { pay: 70, time: 170, tier: 0 }),
+  DZ('sigil07', "Sigil '07", 'sigil_07', { pay: 70, time: 170, tier: 0, dropMeshes: /Body_Badges/ }),
   DZ('riverside88', "Riverside '88", 'riverside_88', { pay: 72, time: 180, tier: 1 }),
   DZ('tozzo98', "Tozzo '98", 'tozzo_98', { pay: 80, time: 175, tier: 1 }),
   DZ('stinger96', "Stinger '96", 'stinger_96', { pay: 80, time: 175, tier: 1 }),
@@ -78,14 +78,25 @@ export function prepareGltfCar(template, def) {
   const pivot = new THREE.Group();
   pivot.add(inner);
   if (def.rotY) inner.rotation.y = def.rotY;
+  if (def.dropMeshes) {
+    const drop = [];
+    inner.traverse((o) => o.isMesh && def.dropMeshes.test(o.name) && drop.push(o));
+    drop.forEach((o) => o.parent.remove(o));
+  }
   pivot.updateMatrixWorld(true);
   if (def.autoOrient) autoOrient(pivot, inner);
+  pivot.updateMatrixWorld(true);
 
   const box = new THREE.Box3().setFromObject(pivot);
   const size = box.getSize(new THREE.Vector3());
   const scale = def.length ? Math.min(def.length / size.z, MAX_HEIGHT / size.y, MAX_WIDTH / size.x) : 1;
+  // Zemin: lastiklerin en alt noktası (tek bir sapık mesh aracı havaya kaldırmasın)
+  let groundY = box.min.y;
+  const tireBox = new THREE.Box3();
+  pivot.traverse((o) => o.isMesh && /tire|tyre/i.test(o.name) && tireBox.expandByObject(o));
+  if (!tireBox.isEmpty() && tireBox.min.y >= box.min.y && tireBox.min.y - box.min.y < size.y * 0.3) groundY = tireBox.min.y;
   pivot.scale.setScalar(scale);
-  pivot.position.set(-(box.min.x + box.max.x) * 0.5 * scale, -box.min.y * scale, -(box.min.z + box.max.z) * 0.5 * scale);
+  pivot.position.set(-(box.min.x + box.max.x) * 0.5 * scale, -groundY * scale, -(box.min.z + box.max.z) * 0.5 * scale);
 
   const mats = new Map();
   pivot.traverse((o) => {

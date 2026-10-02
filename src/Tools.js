@@ -217,7 +217,14 @@ export class Tools {
       }
       case 'tire': {
         if (!touching) break;
-        const res = this.carManager.paint(hit.point, 0.22, { tire: 1.1 * f }, dt);
+        // Yalnızca dış yanak: normal yana bakar ve araç merkezinden uzaklaşır (iç yanak ve taban sayılmaz)
+        const cx = this.carManager.car.root.position.x;
+        const outer = Math.abs(hit.normal.x) > 0.6 && hit.normal.x * (hit.point.x - cx) > 0;
+        if (!outer) {
+          this.hintOnce('tire-outer', 'Lastiğin dışa bakan yan yüzüne sür');
+          break;
+        }
+        const res = this.carManager.paint(hit.point, 0.16, { tire: 1.1 * f }, dt);
         this.scrubPhase += dt * (4 + scrub * 14);
         loops.pad = 0.3 + 0.7 * scrub;
         if (res && res.mud > 0.4) this.hintOnce('tire-mud', 'Lastik çamurlu — önce su ile yıka');

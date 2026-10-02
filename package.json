@@ -1,6 +1,6 @@
 {
   "name": "parilti-oto-yikama",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Birinci şahıs oto yıkama simülatörü (Three.js)",
   "type": "module",

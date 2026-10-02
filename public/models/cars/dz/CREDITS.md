@@ -13,7 +13,6 @@ Tüm araç modelleri **Daniel Zhabotinsky** tarafından yapılmış ve [CC BY 4.
 | LCT 3000 '95 - Low poly model | [Sketchfab](https://sketchfab.com/3d-models/lct-3000-95-low-poly-model-663a0953c038434a918cb85725c88ffa) |
 | Negotiator '80 - Low poly model | [Sketchfab](https://sketchfab.com/3d-models/negotiator-80-low-poly-model-892b2684fb37442299bfad9222cf331c) |
 | Shvan '92 - Low poly model | [Sketchfab](https://sketchfab.com/3d-models/shvan-92-low-poly-model-09d718c9cf72401b8534d265a06a803f) |
-| Chapman '73 - Low poly model | [Sketchfab](https://sketchfab.com/3d-models/chapman-73-low-poly-model-f30b644b59b54e809355009dce463d47) |
 | Compact '07 - Low poly model | [Sketchfab](https://sketchfab.com/3d-models/compact-07-low-poly-model-25c6874d173a4f6ca63e150bbd505686) |
 | Kiri '10 - Low poly model | [Sketchfab](https://sketchfab.com/3d-models/kiri-10-low-poly-model-7fd6e15785fa4aa9bfd6e31eb7c97ba6) |
 | Libeccio V6 '91 - Low poly model | [Sketchfab](https://sketchfab.com/3d-models/libeccio-v6-91-low-poly-model-2e14302c06b546b0821af441da718b68) |
