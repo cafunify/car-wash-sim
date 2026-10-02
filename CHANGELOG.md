@@ -3,6 +3,11 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.4.0
+- Yeni açılış ekranı: kirli → parlak araç animasyonu, gerçek aşama aşama ilerleme çubuğu, dönen ipuçları
+- Başlangıç kartı yükleme sırasında görünür (kontroller okunabilir); düğme hazır olunca açılır
+- İlk araç modeli garaj kurulurken paralel indirilir (açılış kısalır)
+
 ## v0.3.1
 - Başlangıç seviyesinde gelen araç çeşidi 3'ten 12'ye çıktı; son 6 araçta aynı model tekrar gelmez
 

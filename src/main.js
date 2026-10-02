@@ -17,6 +17,7 @@ import { AudioManager } from './Audio.js';
 import { ToolRack } from './ToolRack.js';
 import { Minimap } from './Minimap.js';
 import { Snapshot } from './Snapshot.js';
+import { LoadScreen } from './LoadScreen.js';
 import { PACKAGES, STEPS, pickPackage, packageProgress } from './Packages.js';
 
 const EYE_HEIGHT = 1.68;
@@ -56,7 +57,10 @@ class Game {
   }
 
   async init() {
+    const load = (this.load = new LoadScreen());
+    load.step(0.04, 'Yazı tipleri yükleniyor…');
     await document.fonts.ready;
+    load.step(0.1, 'Sahne kuruluyor…');
 
     // ------------------------------------------------ renderer + sahne
     const renderer = (this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }));
@@ -90,6 +94,7 @@ class Game {
     this.composer.addPass(new OutputPass());
 
     // ------------------------------------------------ sistemler
+    load.step(0.18, 'Garaj kuruluyor…');
     this.hud = new HUD();
     this.minimap = new Minimap();
     this.fpsFrames = 0;
@@ -104,6 +109,9 @@ class Game {
       onArrived: (car) => this.onCarArrived(car),
       onLeft: () => this.onCarLeft(),
     });
+    // İlk araç modelini garaj kurulurken paralel indir
+    const preloading = this.cars.preload(this.economy.shopLevel);
+    load.step(0.4, 'Aletler ve raf hazırlanıyor…');
     this.snapshot = new Snapshot(renderer, scene);
     this.dayEntries = [];
     this.pendingShot = null;
@@ -129,15 +137,18 @@ class Game {
     this.applySettings();
     this.knownPackages = new Set(this.economy.packages.map((p) => p.id));
 
+    load.step(0.6, 'Garaj ışıkları yerleştiriliyor…');
     this.applyLevel(this.economy.shopLevel);
-    await this.cars.preload(this.economy.shopLevel);
+    load.step(0.75, 'Araç modeli indiriliyor…');
+    await preloading;
+    load.step(0.88, 'Boya ve ışıklar derleniyor…');
     this.spawnCar();
     await this.cars.car.ready;
     this.hud.message('Müşteri geliyor…<br><small>Su ve köpük tabancası belinde (1/2) · diğer aletler sağdaki rafta</small>', 4);
 
     this.bindInput();
     this.bindSettings();
-    document.getElementById('loading').classList.add('hidden');
+    load.done();
     renderer.setAnimationLoop(() => this.frame());
     this.exposeDebug();
   }
@@ -826,5 +837,5 @@ class Game {
 
 new Game().init().catch((err) => {
   console.error(err);
-  document.querySelector('#loading p').textContent = 'Bir hata oluştu: ' + err.message;
+  document.getElementById('load-stage').textContent = 'Bir hata oluştu: ' + err.message;
 });
