@@ -40,6 +40,7 @@ class Game {
     this.debugPlay = false;
     this.time = 0;
     this.keys = new Set();
+    this.deliverArmed = 0; // T ile teslim onayı için ilk basış zamanı
     this.crouchToggle = false; // C bir kez basınca çömelir, tekrar basınca kalkar
     this.firing = false;
     this.mouseDist = 0;
@@ -171,6 +172,7 @@ class Game {
   /** Aracı teslim et. progress < 1 ise erken teslim: eksik her %1 için 2$ kesilir */
   onCarWashed(progress = 1) {
     const car = this.cars.car;
+    this.deliverArmed = 0;
     const res = this.economy.payout(progress, { etched: car?.birdEtched });
     // "Sonra" fotoğrafı bu karenin sonunda çekilir, teslim kartı onunla açılır
     if (res) this.pendingShot = { kind: 'after', car, res };
@@ -238,11 +240,18 @@ class Game {
     this.hud.message(`☀ Gün ${this.economy.state.day} başladı<br><small>Bugün ${CARS_PER_DAY} müşteri gelecek · itibarın ${this.economy.state.rep.toFixed(1)} ★</small>`, 3.5);
   }
 
-  /** T: aracı tek basışla teslim et; eksik temizlik varsa ücretten kesinti yapılır */
+  /** T: teslim (tam temizse hemen; eksikse ilk basışta ücret önizlemesi, ikinci basışta onay) */
   deliver() {
     if (!this.cars.isWashable) return this.hud.hint('Teslim edilecek araç yok', 1.5);
     const progress = this.lastStats?.total ?? 0;
-    this.onCarWashed(progress >= 0.999 ? 1 : progress);
+    if (progress >= 0.999) return this.onCarWashed(1);
+    const q = this.economy.quote(progress);
+    if (this.deliverArmed && this.time - this.deliverArmed < 3.5) return this.onCarWashed(progress);
+    this.deliverArmed = this.time;
+    this.hud.message(
+      `Aracı şimdi teslim et? <b>%${100 - q.missing}</b> temiz<br><small>Eksik %${q.missing} × $2 = <b>-$${q.penalty}</b> kesinti · ödeme <b>$${q.total}</b> · bahşiş yok<br>Onaylamak için <kbd>T</kbd> tuşuna tekrar bas</small>`,
+      3.5,
+    );
   }
 
   // ---------------------------------------------------------------- ayarlar
