@@ -348,7 +348,7 @@ export class Effects {
 
   sprayFoam(from, dir, hit, dt, right) {
     const dist = hit ? from.distanceTo(hit.point) : 4;
-    // Su tabancası gibi yatay yelpaze: yanlara geniş, dikeyde ince
+    // Su tabancası gibi dikey yelpaze: `right` parametresi yelpazenin açıldığı eksendir (kameranın yukarısı)
     const spread = 0.16;
     const w = 0.05 + dist * spread;
     this.foamJet.set(from, dir, dist, w, 0.016 + dist * 0.02, right, 0.03);
@@ -357,7 +357,8 @@ export class Effects {
     for (let i = 0; i < count; i++) {
       const lateral = (Math.random() - 0.5) * 2 * spread;
       this._v.copy(dir).addScaledVector(right, lateral);
-      this._v.y += (Math.random() - 0.5) * spread * 0.25;
+      this._v.x += (Math.random() - 0.5) * spread * 0.25;
+      this._v.z += (Math.random() - 0.5) * spread * 0.25;
       this._v.normalize().multiplyScalar(speed * (0.85 + Math.random() * 0.3));
       this.foam.emit(from, this._v, {
         life: hit ? dist / speed : 0.5,

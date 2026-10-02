@@ -1,4 +1,5 @@
 import { availablePackages, PACKAGES } from './Packages.js';
+import { TOWEL_ICON } from './Icons.js';
 
 /**
  * Para, yükseltmeler, müşteri zamanlayıcısı / bahşiş, kayıt ve mağaza arayüzü.
@@ -6,6 +7,8 @@ import { availablePackages, PACKAGES } from './Packages.js';
 
 const SAVE_KEY = 'parilti-oto-yikama-v1';
 const START_MONEY = 0;
+// Tüm müşteri sürelerini orantılı uzatır (bahşiş için daha rahat zaman)
+const TIME_SCALE = 1.6;
 export const CARS_PER_DAY = 6;
 const START_REP = 3;
 
@@ -62,7 +65,7 @@ export const UPGRADES = [
   {
     id: 'towel',
     name: 'Mikrofiber Havlu',
-    icon: '🧻',
+    icon: TOWEL_ICON,
     desc: 'Daha büyük ve emici havlu, aracı hızla kurutur.',
     costs: [100, 280],
     effect: (l) => `Kurutma hızı ×${TABLE.towelSpeed[l]}`,
@@ -213,7 +216,7 @@ export class EconomyManager {
   // ---------------------------------------------------------------- müşteri
   startCustomer(car) {
     const pkg = car.package || PACKAGES.standart;
-    this.customer = { car, elapsed: 0, target: Math.round(car.def.time * pkg.time) };
+    this.customer = { car, elapsed: 0, target: Math.round(car.def.time * pkg.time * TIME_SCALE) };
     this.hud.setCustomer(car.customer, car.def.name, this.estimatePay(car.def.pay * pkg.mult), pkg);
   }
 

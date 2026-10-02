@@ -213,6 +213,7 @@ body.free-mouse #crosshair { transition: none; }
 }
 #held-tool.empty { border-color: var(--border); box-shadow: none; }
 #held-tool .icon { font-size: 30px; line-height: 1; }
+.icon svg { display: block; width: 1em; height: 1em; }
 #held-tool b { display: block; font-size: 15px; }
 #held-tool small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 
@@ -758,3 +759,9 @@ body.free-mouse #crosshair { transition: none; }
   .dc-body { padding: 8px 10px 10px; }
   .dc-comment { margin: 4px 0 6px; font-size: 12px; }
 }
+
+/* Yeni müşteri geçişi */
+#arrival { position: fixed; top: 24%; left: 50%; transform: translate(-50%, 0); padding: 12px 22px 14px; text-align: center; z-index: 8; transition: opacity 0.5s, transform 0.5s; }
+#arrival.hidden { display: block; opacity: 0; transform: translate(-50%, -12px); pointer-events: none; }
+#arrival .loader-stage { width: 180px; height: 68px; margin: 0 auto 6px; }
+#arrival p { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.04em; }

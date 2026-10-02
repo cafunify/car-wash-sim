@@ -482,6 +482,16 @@ export class DirtVolume {
     for (let s = 0; s < n; s++) {
       this.sampleIdx[s] = this.voxelIndexAt(positions[s * 3], positions[s * 3 + 1], positions[s * 3 + 2]) * 4;
     }
+    // Lastik parlatma yalnızca yanağı (normaller Int8, ±127) (aracın yan eksenine bakan yüz) sayar; tabandaki örnekler hesaba girmez
+    this.tireSide = null;
+    if (normals) {
+      const side = new Uint8Array(n);
+      let count = 0;
+      for (let s = 0; s < n; s++) {
+        if (parts[s] === PART.TIRE && Math.abs(normals[s * 3]) > 0.6 * 127) { side[s] = 1; count++; }
+      }
+      if (count > 20) this.tireSide = side; // yanak örneği yoksa tüm lastik sayılır
+    }
   }
 
   /** Temizlik istatistikleri: her katman için temiz örneklerin oranı (parçası olmayan katman = 1) */
@@ -507,7 +517,10 @@ export class DirtVolume {
       }
       switch (part) {
         case PART.RIM: cnt[0]++; if (detail[i] < CLEAN_THRESHOLD) ok[0]++; break;
-        case PART.TIRE: cnt[1]++; if (detail[i + 1] < CLEAN_THRESHOLD) ok[1]++; break;
+        case PART.TIRE:
+          if (this.tireSide && !this.tireSide[s]) break;
+          cnt[1]++; if (detail[i + 1] < CLEAN_THRESHOLD) ok[1]++;
+          break;
         case PART.GLASS: cnt[2]++; if (detail[i + 2] < CLEAN_THRESHOLD) ok[2]++; break;
         case PART.PAINT: cnt[3]++; if (detail[i + 3] > POLISHED) ok[3]++; break;
       }

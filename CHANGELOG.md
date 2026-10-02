@@ -3,6 +3,13 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.5.0
+- Havlu ikonu: tuvalet kağıdı emojisi yerine mikrofiber havlu SVG ikonu; havlu animasyonu yenilendi (elden yüzeye geçiş, "8" süpürme, kırışma dalgası)
+- Yeni müşteri gelirken geçiş kartı (donma hissi yerine animasyon)
+- Su ve köpük akışı dikey yelpaze
+- Lastik parlatma yalnızca lastiğin yanağında sayılır
+- Tüm müşteri süreleri 1.6 kat uzadı (bahşiş daha kolay)
+
 ## v0.4.1
 - Sol alttaki "Eksik yerler" haritası kaldırıldı; yerine F kir tarayıcı bilgi kutusu eklendi (renk anlamları + ne yaptığı)
 
