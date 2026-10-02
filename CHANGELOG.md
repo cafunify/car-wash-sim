@@ -3,6 +3,9 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.4.1
+- Sol alttaki "Eksik yerler" haritası kaldırıldı; yerine F kir tarayıcı bilgi kutusu eklendi (renk anlamları + ne yaptığı)
+
 ## v0.4.0
 - Yeni açılış ekranı: kirli → parlak araç animasyonu, gerçek aşama aşama ilerleme çubuğu, dönen ipuçları
 - Başlangıç kartı yükleme sırasında görünür (kontroller okunabilir); düğme hazır olunca açılır
