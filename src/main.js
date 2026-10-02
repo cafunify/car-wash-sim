@@ -15,7 +15,6 @@ import { EconomyManager, SHOP_LEVEL_NAMES, CARS_PER_DAY } from './EconomyManager
 import { HUD } from './HUD.js';
 import { AudioManager } from './Audio.js';
 import { ToolRack } from './ToolRack.js';
-import { Minimap } from './Minimap.js';
 import { Snapshot } from './Snapshot.js';
 import { LoadScreen } from './LoadScreen.js';
 import { PACKAGES, STEPS, pickPackage, packageProgress } from './Packages.js';
@@ -96,7 +95,6 @@ class Game {
     // ------------------------------------------------ sistemler
     load.step(0.18, 'Garaj kuruluyor…');
     this.hud = new HUD();
-    this.minimap = new Minimap();
     this.fpsFrames = 0;
     this.fpsTime = 0;
     this.audio = new AudioManager();
@@ -177,6 +175,13 @@ class Game {
     this.economy.startCustomer(car);
     this.pendingShot = { kind: 'before', car };
     this.audio.carArrive();
+    // F ipucu kutusu ilk araçlarda kısa süre vurgulanır
+    if ((this.scanPulses = (this.scanPulses || 0) + 1) <= 2) {
+      const hint = document.getElementById('scan-hint');
+      hint.classList.remove('pulse');
+      void hint.offsetWidth;
+      hint.classList.add('pulse');
+    }
     const steps = car.package.steps.map((id) => STEPS[id].label).join(' ➔ ');
     this.hud.message(`<b>${car.customer}</b> ${car.def.name} ile geldi!<br><small>${car.package.name}: ${steps}</small>`, 4.5);
   }
@@ -274,7 +279,6 @@ class Game {
     this.lookSpeed = 0.0035 * (st.sens / 100);
     this.applyQuality(st.quality);
     document.getElementById('fps').classList.toggle('hidden', !st.fps);
-    this.minimap.setVisible(st.minimap);
   }
 
   applyQuality(q) {
@@ -315,7 +319,6 @@ class Game {
       for (const b of $('set-quality').children) b.classList.toggle('on', b.dataset.q === st.quality);
       $('set-quality-note').textContent = QUALITY[st.quality].note;
       $('set-fps').checked = st.fps;
-      $('set-minimap').checked = st.minimap;
     };
     const commit = () => {
       this.economy.save();
@@ -336,7 +339,6 @@ class Game {
       this.audio.click();
     });
     $('set-fps').addEventListener('change', (e) => { st.fps = e.target.checked; commit(); });
-    $('set-minimap').addEventListener('change', (e) => { st.minimap = e.target.checked; commit(); });
     document.querySelectorAll('.open-settings').forEach((b) => b.addEventListener('click', () => {
       refresh();
       panel.classList.remove('hidden');
@@ -782,10 +784,6 @@ class Game {
     this.env.update(this.time);
     this.hud.update(dt);
     this.updateFps(dt);
-    this._yaw = this._yaw || new THREE.Euler(0, 0, 0, 'YXZ');
-    this._yaw.setFromQuaternion(this.camera.quaternion);
-    this.minimap.update(dt, this.cars.isWashable ? this.cars.car : null,
-      { x: this.camera.position.x, z: this.camera.position.z, yaw: this._yaw.y });
     this.takePendingShot();
     this.composer.render();
   }

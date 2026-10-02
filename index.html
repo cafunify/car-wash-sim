@@ -77,11 +77,15 @@
     <div id="tool-hint"></div>
     <div id="prompt"></div>
 
-    <!-- Sol alt: eksik yer haritası -->
-    <div id="minimap" class="panel">
-      <div class="mm-head"><span>Eksik yerler</span><small>renkli noktalar = kalan iş</small></div>
-      <canvas></canvas>
-      <div class="mm-legend"></div>
+    <!-- Sol alt: kir tarayıcı (F) bilgisi -->
+    <div id="scan-hint" class="panel">
+      <div class="sh-head"><kbd>F</kbd><span>Kir tarayıcı</span></div>
+      <div class="sh-legend">
+        <span><i style="background:#ff9a3d"></i>kir</span>
+        <span><i style="background:#c76bff"></i>kuş / böcek</span>
+        <span><i style="background:#4db8ff"></i>ıslak</span>
+      </div>
+      <small>Basınca kalan kirli yerler birkaç saniye parlar</small>
     </div>
 
     <div id="fps" class="hidden"></div>
@@ -226,10 +230,6 @@
       <label class="set-row check">
         <span>📈 FPS göster <kbd>P</kbd></span>
         <input type="checkbox" id="set-fps" />
-      </label>
-      <label class="set-row check">
-        <span>🗺 Eksik yer haritası</span>
-        <input type="checkbox" id="set-minimap" />
       </label>
       <div class="settings-footer">
         <button id="settings-close" class="btn-primary">Tamam</button>

@@ -75,7 +75,6 @@ src/
   Packages.js       Yıkama paketleri, sıralı adımlar, ilerleme hesabı
   Tools.js          Aletlerin davranışı ve birinci şahıs modelleri
   Towel.js          Araç yüzeyine serilen, kıvrımlara uyan kurulama havlusu
-  Minimap.js        Eksik yer haritası (sol/sağ/üst görünüş, oyuncu konumu)
   ToolRack.js       Alet rafı, etiketler, mağaza terminali
   Particles.js      Hacimli su/köpük huzmesi, sıçrama, sis, damla ve ışıltı partikülleri
   Environment.js    3 seviyeli prosedürel garaj (Basit → Yenilenmiş → Neon stüdyo)
