@@ -116,7 +116,7 @@ npx @gltf-transform/cli optimize girdi.glb public/models/cars/dz/cikti.glb --tex
 
 ### Debug
 
-Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `nextCar('premium')`, `setLevel(2)`, `stats()` (kuş/böcek için `bird`, `bugs`, `spots`, `birdHard`), `spots(kuş = 4, böcek = 40)` (aktif araca leke ekler, adım yoksa pakete katar), `etchBird()` (kuş pisliği kuruma süresini doldurur), `play()`, `fire()`, `teleport(x, z, bakX, bakY, bakZ)`.
+Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `nextCar('premium', 'milano95')`, `setLevel(2)`, `stats()` (kuş/böcek için `bird`, `bugs`, `spots`, `birdHard`), `spots(kuş = 4, böcek = 40)` (aktif araca leke ekler, adım yoksa pakete katar), `etchBird()` (kuş pisliği kuruma süresini doldurur), `play()`, `fire()`, `teleport(x, z, bakX, bakY, bakZ)`.
 
 ## Varlıklar ve lisans
 

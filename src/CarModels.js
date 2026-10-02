@@ -34,6 +34,21 @@ export const CAR_CATALOG = [
   DZ('shvan92', "Shvan '92 Minibüs", 'shvan92', { pay: 85, time: 200, tier: 1 }),
   DZ('lct95', "LCT 3000 '95 Kamyonet", 'lct300095', { pay: 100, time: 240, tier: 2 }),
   DZ('lct07', "LCT 3000 '07 Kamyonet", 'lct300007', { pay: 100, time: 240, tier: 2 }),
+  DZ('compact07', "Compact '07", 'compact_07', { pay: 45, time: 140, tier: 0 }),
+  DZ('kiri10', "Kiri '10", 'kiri_10', { pay: 50, time: 150, tier: 0 }),
+  DZ('lolita91', "Lolita '91", 'lolita_91', { pay: 50, time: 150, tier: 0 }),
+  DZ('olympic95', "Olympic '95", 'olympic_95', { pay: 55, time: 155, tier: 0 }),
+  DZ('chapman73', "Chapman '73", 'chapman_73', { pay: 60, time: 160, tier: 0 }),
+  DZ('urban10', "Urban '10", 'urban_10', { pay: 65, time: 165, tier: 1 }),
+  DZ('murphy92', "Murphy '92", 'murphy_92', { pay: 65, time: 170, tier: 1 }),
+  DZ('milano95', "Milano '95", 'milano_95', { pay: 70, time: 170, tier: 1 }),
+  DZ('sigil07', "Sigil '07", 'sigil_07', { pay: 70, time: 170, tier: 1 }),
+  DZ('riverside88', "Riverside '88", 'riverside_88', { pay: 72, time: 180, tier: 1 }),
+  DZ('tozzo98', "Tozzo '98", 'tozzo_98', { pay: 80, time: 175, tier: 1 }),
+  DZ('stinger96', "Stinger '96", 'stinger_96', { pay: 80, time: 175, tier: 1 }),
+  DZ('phoenix93', "Phoenix '93", 'phoenix_93', { pay: 85, time: 180, tier: 1 }),
+  DZ('roadster00', "Roadster '00", 'roadster_00', { pay: 90, time: 185, tier: 2 }),
+  DZ('libeccio91', "Libeccio V6 '91", 'libeccio_v6_91', { pay: 95, time: 190, tier: 2 }),
 ];
 
 /** Gerçekçi araç boyası renkleri (metalik) */

@@ -8,6 +8,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 import { Environment, WALK_BOUNDS } from './Environment.js';
 import { CarManager } from './CarManager.js';
+import { CAR_CATALOG } from './CarModels.js';
 import { Effects } from './Particles.js';
 import { Tools, TOOL_DEFS, toolIndex } from './Tools.js';
 import { EconomyManager, SHOP_LEVEL_NAMES, CARS_PER_DAY } from './EconomyManager.js';
@@ -806,10 +807,11 @@ class Game {
         this.economy.save();
         this.onUpgrade('unlock', 1);
       },
-      nextCar: (pkgId) => {
+      nextCar: async (pkgId, carId) => {
+        if (carId) await this.cars.loadDef(CAR_CATALOG.find((d) => d.id === carId));
         this.cars.disposeCar();
         const pkg = PACKAGES[pkgId] || pickPackage(this.economy.owns);
-        const car = this.cars.spawn(this.economy.shopLevel, pkg);
+        const car = this.cars.spawn(this.economy.shopLevel, pkg, carId);
         this.applyCosmetics();
         this.hud.setPackage(car.package);
         this.hints = new Set();
