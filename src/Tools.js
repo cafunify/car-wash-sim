@@ -262,7 +262,7 @@ export class Tools {
     // Havlu: araca değince açılıp yüzeye serilir
     if (def.kind === 'cloth') {
       if (active && hit && this.carManager.isWashable) {
-        this.cloth.place(hit, Math.sin(this.scrubPhase), time);
+        this.cloth.place(hit, this.scrubPhase, time, dt);
         model.visible = false;
         return;
       }

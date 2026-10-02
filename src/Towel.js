@@ -12,7 +12,11 @@ const _d = new THREE.Vector3();
 const _t1 = new THREE.Vector3();
 const _t2 = new THREE.Vector3();
 const _p = new THREE.Vector3();
+const _sweep = new THREE.Vector3();
+const _v = new THREE.Vector3();
+const _vt = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
+const SWEEP = 0.07; // süpürme genliği (m)
 
 function microfiberTexture() {
   const c = document.createElement('canvas');
@@ -61,19 +65,55 @@ export class ClothTowel {
     this.local = [];
     for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) this.local.push([(i / (NX - 1) - 0.5) * W, (j / (NY - 1) - 0.5) * H]);
     this.angle = 0;
+    this.shown = false;
+    this.center = new THREE.Vector3();
+    this.vel = new THREE.Vector3();
+    this.settle = 1;
   }
 
   hide() {
     this.mesh.visible = false;
+    this.shown = false;
   }
 
-  /** hit: {point, normal} — bezin merkezi ve yönü; spin: ovalama sırasında hafif dönüş */
-  place(hit, spin, time) {
+  /**
+   * hit: {point, normal} — bezin merkezi ve yönü; phase: ovalama fazı (scrubPhase).
+   * Bez eli takip eder: ilk değişte elden yüzeye iner, ovalarken ileri geri süpürür,
+   * hareket yönünün arkasındaki kenar sürüklenip kalkar ve kıvrılır.
+   */
+  place(hit, phase, time, dt = 0.016) {
     const n = hit.normal;
     _t1.crossVectors(n, Math.abs(n.y) > 0.9 ? _t2.set(1, 0, 0) : UP).normalize();
     _t2.crossVectors(n, _t1).normalize();
-    // Ovalarken bez hafifçe döner
-    this.angle = spin * 0.35;
+
+    // Süpürme: yüzey boyunca ileri geri (t1) ve hafif yan kayma (t2)
+    _sweep.copy(hit.point)
+      .addScaledVector(_t1, Math.sin(phase) * SWEEP)
+      .addScaledVector(_t2, Math.sin(phase * 0.5) * SWEEP * 0.45);
+
+    if (!this.shown) {
+      this.center.copy(_sweep);
+      this.vel.set(0, 0, 0);
+      this.settle = 0;
+      this.shown = true;
+    }
+    // Merkez yumuşakça izler; hız sürüklenme etkisini besler
+    const prevX = this.center.x, prevY = this.center.y, prevZ = this.center.z;
+    this.center.lerp(_sweep, 1 - Math.exp(-dt * 22));
+    const inv = 1 / Math.max(dt, 1e-3);
+    _v.set((this.center.x - prevX) * inv, (this.center.y - prevY) * inv, (this.center.z - prevZ) * inv);
+    this.vel.lerp(_v, 1 - Math.exp(-dt * 14));
+    this.settle = Math.min(1, this.settle + dt * 5);
+
+    // Hızın yüzeye teğet bileşeni
+    _vt.copy(this.vel).addScaledVector(n, -this.vel.dot(n));
+    const speed = _vt.length();
+    if (speed > 1e-3) _vt.multiplyScalar(1 / speed);
+    const drag = Math.min(speed * 0.06, 0.05);
+    const air = 1 - this.settle * this.settle; // inerken bez havada ve eğik
+
+    // Bez ovalama yönünde hafifçe döner
+    this.angle = Math.sin(phase) * 0.25;
     const ca = Math.cos(this.angle), sa = Math.sin(this.angle);
 
     const pos = this.mesh.geometry.attributes.position;
@@ -81,17 +121,26 @@ export class ClothTowel {
       const [lu, lv] = this.local[k];
       const u = lu * ca - lv * sa;
       const v = lu * sa + lv * ca;
-      _p.copy(hit.point).addScaledVector(_t1, u).addScaledVector(_t2, v);
+      _p.copy(this.center).addScaledVector(_t1, u).addScaledVector(_t2, v);
       _o.copy(_p).addScaledVector(n, LIFT);
       _d.copy(n).negate();
       const t = this.cars.surfaceRay(_o, _d, LIFT * 2.4);
+      let lift = 0;
       if (t < LIFT * 2.4) {
         _p.copy(_o).addScaledVector(_d, t - GAP);
       } else {
         // Yüzeyin dışına taşan kenar: aracın içine sarkmaz, teğet düzlemde kalıp hafifçe dışa kıvrılır
         const edge = Math.hypot(lu / W, lv / H);
-        _p.addScaledVector(n, GAP + 0.02 * edge + Math.sin(time * 3 + lu * 20) * 0.003);
+        _p.addScaledVector(n, GAP + 0.02 * edge);
       }
+      // Sürüklenme: hareketin arkasında kalan kenar kalkar, dalgalanır
+      if (speed > 1e-3) {
+        const trail = Math.max(0, -(u * _vt.dot(_t1) + v * _vt.dot(_t2)) / (W * 0.5));
+        lift += trail * trail * drag * (1 + 0.35 * Math.sin(time * 28 + lu * 26 + lv * 17));
+      }
+      // Elden iniş: köşeler farklı zamanda yere değer
+      lift += air * (0.1 + (lu / W + 0.5) * 0.06);
+      _p.addScaledVector(n, lift);
       pos.setXYZ(k, _p.x, _p.y, _p.z);
     }
     pos.needsUpdate = true;

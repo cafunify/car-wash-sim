@@ -40,6 +40,7 @@ class Game {
     this.debugPlay = false;
     this.time = 0;
     this.keys = new Set();
+    this.crouchToggle = false; // C bir kez basınca çömelir, tekrar basınca kalkar
     this.firing = false;
     this.mouseDist = 0;
     this.mouseSpeed = 0;
@@ -171,7 +172,6 @@ class Game {
   onCarWashed(progress = 1) {
     const car = this.cars.car;
     const res = this.economy.payout(progress, { etched: car?.birdEtched });
-    this.deliverArmed = 0;
     // "Sonra" fotoğrafı bu karenin sonunda çekilir, teslim kartı onunla açılır
     if (res) this.pendingShot = { kind: 'after', car, res };
     this.rack.setHighlight(null);
@@ -238,18 +238,11 @@ class Game {
     this.hud.message(`☀ Gün ${this.economy.state.day} başladı<br><small>Bugün ${CARS_PER_DAY} müşteri gelecek · itibarın ${this.economy.state.rep.toFixed(1)} ★</small>`, 3.5);
   }
 
-  /** T: erken teslim (ilk basışta ücret önizlemesi, ikinci basışta onay) */
+  /** T: aracı tek basışla teslim et; eksik temizlik varsa ücretten kesinti yapılır */
   deliver() {
     if (!this.cars.isWashable) return this.hud.hint('Teslim edilecek araç yok', 1.5);
     const progress = this.lastStats?.total ?? 0;
-    if (progress >= 0.999) return this.onCarWashed(1);
-    const q = this.economy.quote(progress);
-    if (this.deliverArmed && this.time - this.deliverArmed < 3.5) return this.onCarWashed(progress);
-    this.deliverArmed = this.time;
-    this.hud.message(
-      `Aracı şimdi teslim et? <b>%${100 - q.missing}</b> temiz<br><small>Eksik %${q.missing} × $2 = <b>-$${q.penalty}</b> kesinti · ödeme <b>$${q.total}</b> · bahşiş yok — onay için tekrar <kbd>T</kbd></small>`,
-      3.5,
-    );
+    this.onCarWashed(progress >= 0.999 ? 1 : progress);
   }
 
   // ---------------------------------------------------------------- ayarlar
@@ -456,6 +449,7 @@ class Game {
       }
       if (!this.active) return;
       this.keys.add(e.code);
+      if (e.code === 'KeyC') this.crouchToggle = !this.crouchToggle;
       if (e.code === 'KeyE') this.interact();
       if (e.code === 'KeyQ') {
         if (this.tools.putDown()) this.hud.hint('Alet rafa bırakıldı', 1.2);
@@ -624,7 +618,7 @@ class Game {
       (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0),
       (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0),
     );
-    const crouch = k.has('KeyC');
+    const crouch = this.crouchToggle;
     const speed = crouch ? WALK_SPEED * 0.5 : k.has('ShiftLeft') || k.has('ShiftRight') ? RUN_SPEED : WALK_SPEED;
     if (input.lengthSq() > 1) input.normalize();
 
@@ -712,7 +706,7 @@ class Game {
     if (current === 'rinse' && s.foam < 0.02 && s.stain < STEPS.rinse.threshold) extra = ' · lekeler kaldı: tekrar köpükle';
     if (current === 'dry' && s.foam >= 0.02) extra = ' · önce köpüğü durula';
     if (current === 'spots' && s.birdHard > 0.05) extra = ' · kuş pisliği sert: köpükle kapla, biraz beklet';
-    if ((current === 'tires' || current === 'rims') && !this.crouching) extra = ' · <kbd>C</kbd> çömel';
+    if ((current === 'tires' || current === 'rims') && !this.crouching) extra = ' · <kbd>C</kbd> çömel (aç/kapa)';
     this.hud.setStepHint(`${step.long}: ${how}${extra}`);
     this.rack.setHighlight(!tool.holster && !holding ? tool.id : null);
   }
