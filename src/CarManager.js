@@ -87,15 +87,17 @@ export class CarManager {
     return pool[pool.length - 1];
   }
 
-  pickDef(maxTier) {
+  pickDef(maxTier, forceId) {
+    const forced = forceId && CAR_CATALOG.find((d) => d.id === forceId);
+    if (forced) return forced;
     const allowed = CAR_CATALOG.filter((d) => d.tier <= maxTier && d.id !== this.lastId);
     // Önce modeli inmiş olanlardan seç; hiçbiri inmediyse (ya da hepsi başarısızsa) prosedürel
     const ready = allowed.filter((d) => this.templates.has(d.id));
     return this.pickFrom(ready.length ? ready : allowed);
   }
 
-  spawn(maxTier = 0, pkg = PACKAGES.standart) {
-    const def = this.pickDef(maxTier);
+  spawn(maxTier = 0, pkg = PACKAGES.standart, forceId) {
+    const def = this.pickDef(maxTier, forceId);
     this.lastId = def.id;
 
     const template = this.templates.get(def.id);
