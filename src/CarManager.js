@@ -199,7 +199,7 @@ export class CarManager {
         root.position.z = ENTRY_Z + (PARK_Z - ENTRY_Z) * e;
         this.spinWheels(root.position.z - prevZ);
         // Fren yaparken hafif öne eğilme
-        root.rotation.x = Math.sin(k * Math.PI) * 0.012 * (1 - k);
+        root.rotation.x = Math.sin(k * Math.PI) * 0.006 * (1 - k);
         if (k >= 1) {
           root.rotation.x = 0;
           car.state = 'washing';

@@ -3,6 +3,12 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.5.1
+- Sigil '07 havada duruyordu (modeldeki bozuk rozet mesh'i sınırı 4 m'ye uzatıyordu): rozet çıkarıldı, araçlar lastik tabanından zemine oturtulur
+- Geliş animasyonundaki öne eğilme küçültüldü
+- Chapman '73 oyundan tamamen kaldırıldı
+- Lastik parlatma yalnızca lastiğin dışa bakan yanağında sayılır; iç yanak ve taban hesaba girmez
+
 ## v0.5.0
 - Havlu ikonu: tuvalet kağıdı emojisi yerine mikrofiber havlu SVG ikonu; havlu animasyonu yenilendi (elden yüzeye geçiş, "8" süpürme, kırışma dalgası)
 - Yeni müşteri gelirken geçiş kartı (donma hissi yerine animasyon)

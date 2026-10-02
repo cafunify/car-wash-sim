@@ -482,15 +482,19 @@ export class DirtVolume {
     for (let s = 0; s < n; s++) {
       this.sampleIdx[s] = this.voxelIndexAt(positions[s * 3], positions[s * 3 + 1], positions[s * 3 + 2]) * 4;
     }
-    // Lastik parlatma yalnızca yanağı (normaller Int8, ±127) (aracın yan eksenine bakan yüz) sayar; tabandaki örnekler hesaba girmez
+    // Lastik parlatma yalnızca DIŞA bakan yanağı sayar (normaller Int8, ±127): normal aracın yan eksenine
+    // yakın ve araç merkezinden uzaklaşan yönde olmalı; iç yanak ve taban sayılmaz
     this.tireSide = null;
     if (normals) {
       const side = new Uint8Array(n);
+      const cx = this.min.x + this.size.x * 0.5;
       let count = 0;
       for (let s = 0; s < n; s++) {
-        if (parts[s] === PART.TIRE && Math.abs(normals[s * 3]) > 0.6 * 127) { side[s] = 1; count++; }
+        if (parts[s] !== PART.TIRE) continue;
+        const nx = normals[s * 3];
+        if (Math.abs(nx) > 0.6 * 127 && nx * (positions[s * 3] - cx) > 0) { side[s] = 1; count++; }
       }
-      if (count > 20) this.tireSide = side; // yanak örneği yoksa tüm lastik sayılır
+      if (count > 20) this.tireSide = side; // dış yanak örneği yoksa tüm lastik sayılır
     }
   }
 
