@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { ClothTowel } from './Towel.js';
+import { TOWEL_ICON } from './Icons.js';
 
 /**
  * Aletler. `unlock` mağazadaki ekipman anahtarıdır (null = başlangıçta var).
@@ -10,7 +11,7 @@ import { ClothTowel } from './Towel.js';
 export const TOOL_DEFS = [
   { id: 'hose', name: 'Su Tabancası', short: 'Su', icon: '💦', range: 7, unlock: null, kind: 'spray', holster: '1' },
   { id: 'foam', name: 'Köpük Tabancası', short: 'Köpük', icon: '🫧', range: 4.5, unlock: null, kind: 'spray', holster: '2' },
-  { id: 'towel', name: 'Kurulama Havlusu', short: 'Havlu', icon: '🧻', range: 2.4, unlock: null, kind: 'cloth' },
+  { id: 'towel', name: 'Kurulama Havlusu', short: 'Havlu', icon: TOWEL_ICON, range: 2.4, unlock: null, kind: 'cloth' },
   { id: 'rim', name: 'Jant Temizleyici', short: 'Jant', icon: '🛞', range: 2.4, unlock: 'rimcleaner', kind: 'hand' },
   { id: 'tire', name: 'Lastik Parlatıcı', short: 'Lastik', icon: '⚫', range: 2.4, unlock: 'tireshine', kind: 'hand' },
   { id: 'glass', name: 'Cam Temizleyici', short: 'Cam', icon: '🪟', range: 2.4, unlock: 'glasscleaner', kind: 'spray' },
@@ -61,6 +62,7 @@ export class Tools {
     this.handQuat = new THREE.Quaternion();
     this.cloth = new ClothTowel(scene, carManager);
     this._right = new THREE.Vector3();
+    this._up = new THREE.Vector3();
     this.equip(0, false);
   }
 
@@ -140,6 +142,7 @@ export class Tools {
     const loops = {};
     for (const k of LOOPS) loops[k] = 0;
     this._right.set(1, 0, 0).applyQuaternion(this.camera.quaternion);
+    this._up.set(0, 1, 0).applyQuaternion(this.camera.quaternion); // akış yelpazesi dikey açılır
 
     const active = firing && this.switchT > 0.6;
     const washable = this.carManager.isWashable;
@@ -162,7 +165,7 @@ export class Tools {
         if (!active) break;
         const power = this.economy.hosePower;
         aimFrom(10);
-        this.effects.sprayWater(_tip, _dir, inRange ? hit : null, power, dt, this._right);
+        this.effects.sprayWater(_tip, _dir, inRange ? hit : null, power, dt, this._up);
         this.recoil = 1;
         loops.water = 0.8;
         if (inRange && washable) {
@@ -182,7 +185,7 @@ export class Tools {
       case 'foam': {
         if (!active) break;
         aimFrom(5);
-        this.effects.sprayFoam(_tip, _dir, inRange ? hit : null, dt, this._right);
+        this.effects.sprayFoam(_tip, _dir, inRange ? hit : null, dt, this._up);
         this.recoil = 0.5;
         loops.foam = 1;
         bubbleRate = 0.6;
@@ -263,11 +266,15 @@ export class Tools {
     if (def.kind === 'cloth') {
       if (active && hit && this.carManager.isWashable) {
         this.cloth.place(hit, this.scrubPhase, time, dt);
-        model.visible = false;
+        // Katlı havlu elde küçülüp kaybolurken bez yüzeye iner (çapraz geçiş)
+        const s = Math.max(0, 1 - this.cloth.settle * 1.7);
+        model.visible = s > 0.03;
+        model.scale.setScalar(Math.max(s, 0.001));
         return;
       }
       this.cloth.hide();
       model.visible = true;
+      model.scale.setScalar(1);
     }
 
     if (def.kind === 'hand' && active && hit) {

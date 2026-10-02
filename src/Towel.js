@@ -18,7 +18,7 @@ const _vt = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 const REACH = 0.25 * 3.2; // ışın erimi: kıvrımlı yüzeyde de bezin oturması için geniş
 const DRAPE = 0.012; // yüzey bitince bezin komşu köşeye göre sarkması
-const SWEEP = 0.07; // süpürme genliği (m)
+const SWEEP = 0.09; // süpürme genliği (m)
 
 function microfiberTexture() {
   const c = document.createElement('canvas');
@@ -96,7 +96,7 @@ export class ClothTowel {
     // Süpürme: yüzey boyunca ileri geri (t1) ve hafif yan kayma (t2)
     _sweep.copy(hit.point)
       .addScaledVector(_t1, Math.sin(phase) * SWEEP)
-      .addScaledVector(_t2, Math.sin(phase * 0.5) * SWEEP * 0.45);
+      .addScaledVector(_t2, Math.sin(phase * 2) * SWEEP * 0.32); // yatay "8" çizen yumuşak süpürme
 
     if (!this.shown) {
       this.center.copy(_sweep);
@@ -177,6 +177,8 @@ export class ClothTowel {
       if (speed > 1e-3) {
         const trail = Math.max(0, -(u * _vt.dot(_t1) + v * _vt.dot(_t2)) / (W * 0.5));
         lift += trail * trail * drag * (1 + 0.35 * Math.sin(time * 28 + lu * 26 + lv * 17));
+        // Hızlı sürtünmede bezin ortası hafifçe kırışır (katlanma dalgası)
+        lift += Math.min(speed * 0.012, 0.012) * Math.sin(u * 20 - time * 9) * (1 - Math.abs(v) / (H * 0.5)) * this.settle;
       }
       // Elden iniş: köşeler farklı zamanda yere değer
       lift += air * (0.1 + (lu / W + 0.5) * 0.06);

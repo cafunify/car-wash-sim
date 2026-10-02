@@ -152,6 +152,20 @@ class Game {
   }
 
   // ---------------------------------------------------------------- olaylar
+  /** Ağır araç hazırlığından önce geçiş kartını göster (donma hissi yerine animasyon), sonra aracı üret */
+  beginArrival() {
+    const card = document.getElementById('arrival');
+    const shownAt = performance.now();
+    card.classList.remove('hidden');
+    this.spawning = true;
+    requestAnimationFrame(() => requestAnimationFrame(async () => {
+      this.spawnCar();
+      try { await this.cars.car?.ready; } catch { /* derleme hatası geçişi bloklamaz */ }
+      const wait = Math.max(0, 900 - (performance.now() - shownAt));
+      setTimeout(() => { card.classList.add('hidden'); this.spawning = false; }, wait);
+    }));
+  }
+
   spawnCar() {
     const pkg = pickPackage(this.economy.owns, this.economy.state.rep);
     const car = this.cars.spawn(this.economy.shopLevel, pkg);
@@ -764,12 +778,9 @@ class Game {
     this.audio.update(dt);
 
     // Sıradaki müşteri
-    if (!this.cars.car && this.waitTimer > 0) {
+    if (!this.cars.car && this.waitTimer > 0 && !this.spawning) {
       this.waitTimer -= dt;
-      if (this.waitTimer <= 0) {
-        this.spawnCar();
-        this.hud.message('Yeni müşteri geliyor…', 2);
-      }
+      if (this.waitTimer <= 0) this.beginArrival();
     }
 
     // Islak araçtan damlalar
