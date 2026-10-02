@@ -28,7 +28,7 @@ export const PACKAGES = {
     name: 'Standart Temizlik',
     color: '#35d0ff',
     mult: 1,
-    time: 1,
+    time: 1.6,
     steps: ['mud', 'foam', 'spots', 'rinse'],
     requires: [],
   },
