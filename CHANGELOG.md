@@ -3,6 +3,9 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.5.3
+- Giriş ekranı artık her pencere boyutunda yatay iki sütun: dar pencerede/tarayıcı yakınlaştırmasında alt alta düşüp kaydırma çıkarmak yerine içerik orantılı küçülür
+
 ## v0.5.2
 - Giriş ekranı tam ekran iki sütun: solda logo, araç animasyonu, ilerleme ve düğmeler; sağda kontroller. Kaydırma çubuğu kalktı, boyutlar ekran yüksekliğine göre ölçeklenir
 

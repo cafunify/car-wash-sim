@@ -11,6 +11,18 @@ const TIPS = [
   'İtibarın yükseldikçe ücretler ve premium müşteriler artar.',
 ];
 
+/** Giriş ekranı içeriği pencereye sığmıyorsa (küçük pencere, tarayıcı yakınlaştırması) orantılı küçült; kaydırma çubuğu çıkmaz */
+export function fitStartScreen() {
+  const layout = document.querySelector('.start-layout');
+  if (!layout || !layout.clientHeight) return;
+  let fit = 1;
+  layout.style.setProperty('--fit', fit);
+  while ((layout.scrollHeight > layout.clientHeight + 1 || layout.scrollWidth > layout.clientWidth + 1) && fit > 0.45) {
+    fit = Math.round((fit - 0.04) * 100) / 100;
+    layout.style.setProperty('--fit', fit);
+  }
+}
+
 export class LoadScreen {
   constructor() {
     this.root = document.getElementById('loader');
@@ -24,6 +36,8 @@ export class LoadScreen {
     this.tipIndex = Math.floor(Math.random() * TIPS.length);
     this.showTip();
     this.timer = setInterval(() => this.nextTip(), 4200);
+    fitStartScreen();
+    window.addEventListener('resize', fitStartScreen);
   }
 
   /** value: 0..1 toplam ilerleme, text: yapılan iş */
@@ -60,7 +74,9 @@ export class LoadScreen {
     setTimeout(() => {
       this.root.classList.add('done');
       screen.classList.remove('loading');
+      fitStartScreen();
     }, 350);
+    setTimeout(fitStartScreen, 900); // yükleme göstergesi kapandıktan sonra yeniden ölç
     this.startBtn.disabled = false;
     this.startBtn.textContent = 'Tıkla ve Başla';
     screen.querySelectorAll('.open-settings').forEach((b) => (b.disabled = false));

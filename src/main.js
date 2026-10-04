@@ -16,7 +16,7 @@ import { HUD } from './HUD.js';
 import { AudioManager } from './Audio.js';
 import { ToolRack } from './ToolRack.js';
 import { Snapshot } from './Snapshot.js';
-import { LoadScreen } from './LoadScreen.js';
+import { LoadScreen, fitStartScreen } from './LoadScreen.js';
 import { PACKAGES, STEPS, pickPackage, packageProgress } from './Packages.js';
 
 const EYE_HEIGHT = 1.68;
@@ -557,6 +557,7 @@ class Game {
   showStart(label) {
     document.getElementById('start-btn').textContent = label;
     document.getElementById('start-screen').classList.remove('hidden');
+    fitStartScreen();
   }
 
   hideStart() {
