@@ -28,6 +28,7 @@ Tarayıcıda `http://localhost:5173` adresini aç. Fare kilidi (Pointer Lock) de
 | 1 / 2 | Beldeki su / köpük tabancası |
 | E | Rafa bakarken: alet al / bırak · ekrana bakarken: mağaza |
 | Q | Raf aletini bırak, tabancaya dön |
+| Mobil | Ayarlar → Mobil kontroller: sol joystick yürür, ekranda sürükleyerek bakılır, KULLAN düğmesi basılı tutulur, Su/Köpük/E/Q/C/F/T/Menü/Mağaza düğmeleri |
 | T | Aracı teslim et (eksik temizlikte ilk basış ücret önizlemesi, ikinci basış onay) |
 | Tab | Mağaza |
 | F | Kir tarayıcı (kalan kir turuncu, kuş pisliği/böcek mor, cila gereken boya sarı, ıslaklık mavi) |

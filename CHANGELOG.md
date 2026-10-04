@@ -3,6 +3,10 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.6.0
+- Mobil kontroller: Ayarlar → "Mobil kontroller" (dokunmatik cihazda varsayılan açık). Sol joystick (yürü/koş), ekranda sürükleyerek bakış, büyük KULLAN düğmesi, Su/Köpük, E, Q, C, F, T, Menü ve Mağaza düğmeleri
+- Dokunmatik modda giriş ekranı dokunmatik kontrolleri anlatır, HUD küçülür, dikey duruşta "telefonu yatay çevir" uyarısı
+
 ## v0.5.3
 - Giriş ekranı artık her pencere boyutunda yatay iki sütun: dar pencerede/tarayıcı yakınlaştırmasında alt alta düşüp kaydırma çıkarmak yerine içerik orantılı küçülür
 

@@ -17,6 +17,7 @@ import { AudioManager } from './Audio.js';
 import { ToolRack } from './ToolRack.js';
 import { Snapshot } from './Snapshot.js';
 import { LoadScreen, fitStartScreen } from './LoadScreen.js';
+import { TouchControls } from './TouchControls.js';
 import { PACKAGES, STEPS, pickPackage, packageProgress } from './Packages.js';
 
 const EYE_HEIGHT = 1.68;
@@ -46,6 +47,8 @@ class Game {
     this.firing = false;
     this.mouseDist = 0;
     this.mouseSpeed = 0;
+    this.touchMode = false;
+    this.touch = null;
     this.velocity = new THREE.Vector3();
     this.statsTimer = 0;
     this.dripTimer = 0;
@@ -293,6 +296,28 @@ class Game {
     this.lookSpeed = 0.0035 * (st.sens / 100);
     this.applyQuality(st.quality);
     document.getElementById('fps').classList.toggle('hidden', !st.fps);
+    this.setTouchMode(!!st.touch);
+  }
+
+  /** Mobil kontroller: dokunmatik arayüzü aç/kapat (Ayarlar) */
+  setTouchMode(on) {
+    this.touchMode = on;
+    document.body.classList.toggle('touch-mode', on);
+    if (on && !this.touch) this.touch = new TouchControls(this);
+    if (!on) {
+      this.touch?.setVisible(false);
+      if (!this.freeActive) this.freeMode = false; // fare kilidi akışına dön
+    }
+  }
+
+  /** Parmakla bakış (TouchControls): yaw/pitch, hassasiyet ayarıyla ölçeklenir */
+  touchLook(dx, dy, boost = 1) {
+    const q = this.camera.quaternion;
+    this.lookEuler.setFromQuaternion(q);
+    this.lookEuler.y -= dx * this.lookSpeed * boost;
+    this.lookEuler.x = THREE.MathUtils.clamp(this.lookEuler.x - dy * this.lookSpeed * boost, -1.5, 1.5);
+    q.setFromEuler(this.lookEuler);
+    this.mouseDist += Math.hypot(dx, dy);
   }
 
   applyQuality(q) {
@@ -333,6 +358,7 @@ class Game {
       for (const b of $('set-quality').children) b.classList.toggle('on', b.dataset.q === st.quality);
       $('set-quality-note').textContent = QUALITY[st.quality].note;
       $('set-fps').checked = st.fps;
+      $('set-touch').checked = !!st.touch;
     };
     const commit = () => {
       this.economy.save();
@@ -353,6 +379,7 @@ class Game {
       this.audio.click();
     });
     $('set-fps').addEventListener('change', (e) => { st.fps = e.target.checked; commit(); });
+    $('set-touch').addEventListener('change', (e) => { st.touch = e.target.checked; commit(); });
     document.querySelectorAll('.open-settings').forEach((b) => b.addEventListener('click', () => {
       refresh();
       panel.classList.remove('hidden');
@@ -441,7 +468,12 @@ class Game {
 
     startBtn.addEventListener('click', () => {
       this.audio.init();
-      if (this.freeMode) this.enterFree();
+      if (this.touchMode) {
+        // Dokunmatik: fare kilidi yok; tam ekran + yatay yön (en iyi çabayla)
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        screen.orientation?.lock?.('landscape').catch(() => {});
+        this.enterFree();
+      } else if (this.freeMode) this.enterFree();
       else this.requestLock();
     });
 
@@ -516,7 +548,7 @@ class Game {
 
     this.renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('mousedown', (e) => {
-      if (!this.active) return;
+      if (!this.active || this.touchMode) return;
       if (e.button === 0) this.firing = true;
       if (e.button === 2 && this.freeActive) this.looking = true;
     });
@@ -529,7 +561,7 @@ class Game {
         this.mouseDist += Math.hypot(e.movementX, e.movementY);
         return;
       }
-      if (!this.freeActive) return;
+      if (!this.freeActive || this.touchMode) return;
       this.mouseDist += Math.hypot(e.movementX, e.movementY);
       // Serbest fare: araç imlecin gösterdiği yere nişan alır
       this.aim.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -585,7 +617,9 @@ class Game {
   enterFree(announce = false) {
     this.freeMode = true;
     this.freeActive = true;
-    document.body.classList.add('free-mouse');
+    if (!this.touchMode) document.body.classList.add('free-mouse');
+    this.aim.set(0, 0);
+    this.hud.setCrosshairPos(null);
     this.hideStart();
     this.economy.closeShop();
     if (announce) this.hud.message('Fare kilidi kullanılamıyor<br><small>Sağ tuşla sürükleyerek etrafa bak · Sol tık ile temizle · Esc: duraklat</small>', 5);
@@ -657,7 +691,10 @@ class Game {
       (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0),
     );
     const crouch = this.crouchToggle;
-    const speed = crouch ? WALK_SPEED * 0.5 : k.has('ShiftLeft') || k.has('ShiftRight') ? RUN_SPEED : WALK_SPEED;
+    const tm = this.touchMode && this.touch ? this.touch.move : null;
+    if (tm) input.add(tm);
+    const running = k.has('ShiftLeft') || k.has('ShiftRight') || (tm && tm.length() > 0.92);
+    const speed = crouch ? WALK_SPEED * 0.5 : running ? RUN_SPEED : WALK_SPEED;
     if (input.lengthSq() > 1) input.normalize();
 
     const fwd = new THREE.Vector3();
@@ -757,6 +794,8 @@ class Game {
     this.time += dt;
 
     const playing = this.active || this.debugPlay;
+    if (this.touchMode && this.firing) this.mouseDist += 260 * dt; // dokunmatikte ovalama hızı tabanı
+    this.touch?.setVisible(this.touchMode && this.active);
     this.mouseSpeed = THREE.MathUtils.lerp(this.mouseSpeed, this.mouseDist / Math.max(dt, 1e-3), 1 - Math.exp(-dt * 10));
     this.mouseDist = 0;
 
