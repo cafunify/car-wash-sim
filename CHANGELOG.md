@@ -3,6 +3,9 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.5.2
+- Giriş ekranı tam ekran iki sütun: solda logo, araç animasyonu, ilerleme ve düğmeler; sağda kontroller. Kaydırma çubuğu kalktı, boyutlar ekran yüksekliğine göre ölçeklenir
+
 ## v0.5.1
 - Sigil '07 havada duruyordu (modeldeki bozuk rozet mesh'i sınırı 4 m'ye uzatıyordu): rozet çıkarıldı, araçlar lastik tabanından zemine oturtulur
 - Geliş animasyonundaki öne eğilme küçültüldü

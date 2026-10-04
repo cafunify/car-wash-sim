@@ -401,18 +401,52 @@ body.free-mouse #crosshair { transition: none; }
 }
 
 /* Açılışta başlangıç ekranı yükleme göstergesiyle birlikte; opak zemin, hazır olunca normale döner */
+#start-screen { padding: 0; overflow: hidden; }
 #start-screen.loading { background: radial-gradient(ellipse at 50% 30%, #101a30, #05070c 70%); backdrop-filter: none; z-index: 20; }
 .btn-primary:disabled, .btn-ghost:disabled { opacity: 0.55; cursor: progress; transform: none; box-shadow: none; }
 
+/* ------------------------------------------------------------------ Giriş ekranı: tam ekran iki sütun */
+.start-layout {
+  width: 100%; height: 100%;
+  display: grid; grid-template-columns: 1.15fr 1fr; align-items: center;
+  gap: clamp(24px, 5vw, 96px);
+  padding: clamp(20px, 5vh, 64px) clamp(28px, 6vw, 120px);
+  overflow: hidden; scrollbar-width: none;
+}
+.start-layout::-webkit-scrollbar { display: none; }
+.start-main { text-align: center; min-width: 0; }
+.start-main .logo h1 { font-size: clamp(44px, 9vh, 92px); }
+.start-main .logo h1 span { font-size: clamp(13px, 2vh, 20px); }
+.start-main .logo-sparkle { font-size: clamp(40px, 8vh, 80px); }
+.start-main .tagline { font-size: clamp(14px, 2.2vh, 19px); margin: clamp(10px, 2vh, 20px) 0 clamp(14px, 3vh, 34px); }
+.start-main .loader-stage { width: min(100%, clamp(240px, 52vh, 460px)); height: auto; aspect-ratio: 240 / 90; margin: 0 auto clamp(10px, 2vh, 20px); }
+.start-main .load-bar { height: 10px; max-width: 560px; margin: 0 auto; }
+.start-main .load-line { max-width: 560px; margin: 8px auto 0; font-size: clamp(12px, 1.8vh, 15px); }
+.start-main .load-tip { max-width: 560px; margin: clamp(8px, 2vh, 18px) auto 0; font-size: clamp(13px, 2vh, 17px); }
+.start-main .start-actions { margin-top: clamp(14px, 3vh, 34px); }
+.start-main .btn-primary { font-size: clamp(16px, 2.4vh, 20px); padding: clamp(12px, 2vh, 18px) clamp(28px, 4vh, 44px); }
+.start-side {
+  min-width: 0; align-self: center;
+  padding: clamp(18px, 3.5vh, 36px) clamp(20px, 2.6vw, 40px);
+  border-radius: 22px; background: rgba(12, 16, 28, 0.6); border: 1px solid var(--border);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px);
+}
+.start-side h2 { margin: 0 0 clamp(8px, 2vh, 18px); font-size: clamp(13px, 1.9vh, 16px); letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.start-side .controls-grid { grid-template-columns: 1fr; gap: clamp(6px, 1.5vh, 14px); margin-top: 0; font-size: clamp(13px, 2vh, 16px); }
+.start-side .tip { margin-top: clamp(12px, 2.6vh, 26px); font-size: clamp(12px, 1.8vh, 14px); }
+@media (max-width: 900px) {
+  .start-layout { grid-template-columns: 1fr; overflow: auto; align-content: start; }
+}
+
 /* ------------------------------------------------------------------ Yükleme göstergesi */
-.loader { margin: 0 0 22px; transition: opacity 0.5s, max-height 0.6s, margin 0.6s; max-height: 260px; overflow: hidden; }
+.loader { margin: 0 0 22px; transition: opacity 0.5s, max-height 0.6s, margin 0.6s; max-height: 560px; overflow: hidden; }
 .loader.done { opacity: 0; max-height: 0; margin: 0; }
 .loader-stage { position: relative; width: 240px; height: 90px; margin: 0 auto 14px; }
 .lc { position: absolute; inset: 0; width: 100%; height: 100%; }
 .lc-clean { --body: #35d0ff; --glass: #123a52; --rim: #cfd8e6; filter: drop-shadow(0 0 14px rgba(53, 208, 255, 0.45)); }
 .lc-dirty { --body: #6b5a46; --glass: #3d3429; --rim: #54483a; animation: carDirt 3.6s ease-in-out infinite; }
 .lc-shine {
-  position: absolute; top: 0; bottom: 0; left: 0; width: 26px;
+  position: absolute; top: 0; bottom: 0; left: 0; width: 8%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
   transform: skewX(-18deg); opacity: 0; animation: carShine 3.6s ease-in-out infinite;
 }
@@ -422,11 +456,11 @@ body.free-mouse #crosshair { transition: none; }
   100% { clip-path: inset(0 0 0 0); }
 }
 @keyframes carShine {
-  0%, 6% { transform: translateX(-10px) skewX(-18deg); opacity: 0; }
+  0%, 6% { left: -4%; opacity: 0; }
   12% { opacity: 1; }
   54% { opacity: 1; }
-  58% { transform: translateX(236px) skewX(-18deg); opacity: 0; }
-  100% { transform: translateX(236px) skewX(-18deg); opacity: 0; }
+  58% { left: 100%; opacity: 0; }
+  100% { left: 100%; opacity: 0; }
 }
 .bub { position: absolute; bottom: 6px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.55); background: rgba(150, 225, 255, 0.12); opacity: 0; animation: bubUp 3.2s ease-in infinite; }
 .b1 { left: 14%; width: 9px; height: 9px; animation-delay: 0s; }
@@ -457,7 +491,7 @@ body.free-mouse #crosshair { transition: none; }
   .lc-dirty { clip-path: inset(0 0 0 100%); }
 }
 
-.start-card, .shop-card {
+.shop-card {
   width: min(680px, 100%);
   max-height: calc(100vh - 32px);
   overflow: auto;
@@ -467,7 +501,6 @@ body.free-mouse #crosshair { transition: none; }
   border: 1px solid var(--border);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
 }
-.start-card { text-align: center; }
 .logo { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .logo-sparkle {
   font-size: 44px;
