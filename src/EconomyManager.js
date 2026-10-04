@@ -146,7 +146,7 @@ export class EconomyManager {
       money: START_MONEY, washed: 0, totalEarned: 0,
       rep: START_REP, day: 1, today: this.freshDay(START_REP),
       levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, pinkfoam: 0, shop: 0 },
-      settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', fps: false },
+      settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', fps: false, touch: !!globalThis.matchMedia?.('(pointer: coarse)').matches },
     };
   }
 

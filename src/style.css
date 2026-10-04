@@ -797,3 +797,54 @@ body.free-mouse #crosshair { transition: none; }
 #arrival.hidden { display: block; opacity: 0; transform: translate(-50%, -12px); pointer-events: none; }
 #arrival .loader-stage { width: 180px; height: 68px; margin: 0 auto 6px; }
 #arrival p { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.04em; }
+
+/* ------------------------------------------------------------------ Dokunmatik kontroller (Ayarlar → Mobil kontroller) */
+#touch-ui { display: none; position: fixed; inset: 0; z-index: 6; pointer-events: none; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+body.touch-mode #touch-ui.show { display: block; }
+#touch-ui > * { pointer-events: auto; touch-action: none; }
+.t-look { position: absolute; inset: 0; }
+.t-joy {
+  position: absolute; left: max(22px, env(safe-area-inset-left)); bottom: max(22px, env(safe-area-inset-bottom));
+  width: 140px; height: 140px; border-radius: 50%;
+  background: rgba(14, 18, 30, 0.45); border: 2px solid rgba(255, 255, 255, 0.28);
+  display: grid; place-items: center;
+}
+.t-joy-knob { width: 62px; height: 62px; border-radius: 50%; background: rgba(53, 208, 255, 0.55); border: 2px solid rgba(255, 255, 255, 0.7); box-shadow: 0 0 16px rgba(53, 208, 255, 0.5); }
+.t-btn {
+  font-family: inherit; color: var(--text); font-size: 20px; font-weight: 800; line-height: 1;
+  width: 56px; height: 56px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(14, 18, 30, 0.55); backdrop-filter: blur(4px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0;
+}
+.t-btn small { font-size: 9px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+.t-btn.down, .t-fire.down { background: rgba(53, 208, 255, 0.45); border-color: #fff; transform: scale(0.93); }
+.t-small { width: 48px; height: 48px; font-size: 17px; }
+.t-top { position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); display: flex; gap: 10px; }
+.t-tools { position: absolute; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 12px; }
+.t-actions { position: absolute; right: max(150px, calc(env(safe-area-inset-right) + 150px)); bottom: max(22px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, 56px); gap: 10px; }
+.t-fire {
+  position: absolute; right: max(20px, env(safe-area-inset-right)); bottom: max(26px, env(safe-area-inset-bottom));
+  width: 112px; height: 112px; border-radius: 50%; font-family: inherit; font-weight: 800; font-size: 15px; letter-spacing: 0.06em;
+  color: #03131c; background: linear-gradient(135deg, #7ae6ff, var(--accent)); border: 3px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 24px rgba(53, 208, 255, 0.45);
+}
+.t-rotate { display: none; position: fixed; inset: 0; background: rgba(5, 7, 12, 0.92); color: var(--text); font-size: 20px; font-weight: 700; place-items: center; text-align: center; }
+@media (orientation: portrait) { body.touch-mode #touch-ui.show .t-rotate { display: grid; } }
+
+/* Mobil HUD: kısayol listesi ve kalabalık paneller küçülür */
+body.touch-mode #keys-help, body.touch-mode #scan-hint, body.touch-mode #customer-panel { display: none; }
+body.touch-mode #progress-panel { left: 50%; width: min(560px, 60vw); transform: translateX(-50%) scale(0.74); transform-origin: top center; top: 8px; }
+body.touch-mode #day-panel { transform: scale(0.78); transform-origin: top right; right: 12px; top: 64px; }
+body.touch-mode #money-panel { transform: scale(0.8); transform-origin: top right; right: 12px; top: 10px; }
+body.touch-mode #held-tool { left: 12px; top: 72px; bottom: auto; transform: scale(0.72); transform-origin: top left; }
+body.touch-mode #held-tool small { display: none; }
+body.touch-mode #tool-hint { bottom: 150px; }
+body.touch-mode #prompt { bottom: 38%; }
+body.touch-mode #delivery-card { transform: scale(0.75); transform-origin: top left; top: 60px; left: 10px; }
+html, body { overscroll-behavior: none; }
+
+.touch-help { display: none; font-size: clamp(13px, 2vh, 16px); color: var(--muted); }
+.touch-help div { margin-bottom: clamp(6px, 1.4vh, 12px); }
+.touch-help b { color: var(--text); margin-right: 6px; }
+body.touch-mode .touch-help { display: block; }
+body.touch-mode .start-side .controls-grid, body.touch-mode .start-side .tip { display: none; }

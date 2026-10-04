@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Parıltı Oto Yıkama</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -156,6 +156,16 @@
 
      <aside class="start-side">
       <h2>Kontroller</h2>
+      <div class="touch-help">
+        <div><b>Sol joystick</b> Yürü · tam it: koş</div>
+        <div><b>Ekranda sürükle</b> Etrafa bak</div>
+        <div><b>KULLAN</b> Basılı tut: su / köpük / ovala</div>
+        <div><b>Su · Köpük</b> Tabanca değiştir</div>
+        <div><b>E</b> Raftan alet al · <b>Q</b> bırak</div>
+        <div><b>C</b> Çömel · <b>F</b> Kir tara · <b>T</b> Teslim et</div>
+        <div><b>Menü · Mağaza</b> Sol üst köşede</div>
+        <div>Telefonu <b>yatay</b> tut</div>
+      </div>
       <div class="controls-grid">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Hareket</div>
         <div><kbd>Shift</kbd> Koş</div>
@@ -248,11 +258,19 @@
         <span>📈 FPS göster <kbd>P</kbd></span>
         <input type="checkbox" id="set-fps" />
       </label>
+      <label class="set-row check">
+        <span>📱 Mobil kontroller</span>
+        <input type="checkbox" id="set-touch" />
+      </label>
+      <p class="set-note">Açıkken ekranda joystick, bakış alanı ve düğmeler çıkar (yatay tut).</p>
       <div class="settings-footer">
         <button id="settings-close" class="btn-primary">Tamam</button>
       </div>
     </div>
   </div>
+
+  <!-- Dokunmatik kontroller (Ayarlar → Mobil kontroller) -->
+  <div id="touch-ui"></div>
 
   <script type="module" src="/src/main.js"></script>
 </body>
