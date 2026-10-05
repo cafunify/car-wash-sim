@@ -1,5 +1,6 @@
 import { availablePackages, PACKAGES } from './Packages.js';
 import { TOWEL_ICON, CLAY_ICON } from './Icons.js';
+import { WEATHERS, REQUESTS, pickWeather } from './Weather.js';
 
 /**
  * Para, yükseltmeler, müşteri zamanlayıcısı / bahşiş, kayıt ve mağaza arayüzü.
@@ -146,6 +147,7 @@ export class EconomyManager {
     this.hud.setMoney(this.state.money, false);
     this.hud.setWashed(this.state.washed);
     this.hud.setDay(this.state.day, this.state.today.cars, CARS_PER_DAY, this.state.rep);
+    this.hud.setWeather(this.state.weather);
   }
 
   // ---------------------------------------------------------------- kayıt
@@ -153,7 +155,7 @@ export class EconomyManager {
     return {
       money: START_MONEY, washed: 0, totalEarned: 0,
       rep: START_REP, day: 1, today: this.freshDay(START_REP),
-      life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, tar: 0, streak: 0, bestStreak: 0, days: 0 }, ach: {}, goal: null, tutorialDone: false,
+      life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, tar: 0, events: 0, requests: 0, streak: 0, bestStreak: 0, days: 0 }, ach: {}, goal: null, tutorialDone: false, weather: 'clear',
       levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, claybar: 0, pinkfoam: 0, shop: 0 },
       settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', fps: false, touch: !!globalThis.matchMedia?.('(pointer: coarse)').matches },
     };
@@ -188,6 +190,7 @@ export class EconomyManager {
   reset() {
     this.state = this.defaultState();
     this.save();
+    this.hud.setWeather(this.state.weather);
     this.hud.setMoney(0, false);
     this.hud.setWashed(0);
     this.renderShop();
@@ -227,8 +230,13 @@ export class EconomyManager {
   // ---------------------------------------------------------------- müşteri
   startCustomer(car) {
     const pkg = car.package || PACKAGES.standart;
-    this.customer = { car, elapsed: 0, target: Math.round(car.def.time * pkg.time * TIME_SCALE) };
-    this.hud.setCustomer(car.customer, car.def.name, this.estimatePay(car.def.pay * pkg.mult), pkg);
+    // Özel istek: olay aracının zorunlu isteği ya da %30 şansla acele/kusursuz
+    const req = car.event?.forceRequest ? REQUESTS[car.event.forceRequest]
+      : Math.random() < 0.3 ? REQUESTS[Math.random() < 0.5 ? 'rush' : 'perfect'] : null;
+    const target = Math.round(car.def.time * pkg.time * TIME_SCALE * (req?.timeMul || 1));
+    this.customer = { car, elapsed: 0, target, req };
+    const evMult = car.event?.pay || 1;
+    this.hud.setCustomer(car.customer, car.def.name, this.estimatePay(car.def.pay * pkg.mult * evMult), pkg, req);
   }
 
   /** İtibar (1–5 yıldız) ücreti etkiler: 3 yıldız ×1, 5 yıldız ×1.1, 1 yıldız ×0.9 */
@@ -237,7 +245,7 @@ export class EconomyManager {
   }
 
   get multiplier() {
-    return TABLE.shampooMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]) * this.repMult;
+    return TABLE.shampooMult[this.level('sponge')] * (1 + TABLE.shopBonus[this.shopLevel]) * this.repMult * (WEATHERS[this.state.weather]?.pay || 1);
   }
 
   /** Teslim edilen iş için müşteri puanı (1–5). etched: kuş pisliği kurudu (-1 yıldız) */
@@ -262,8 +270,10 @@ export class EconomyManager {
   startNextDay() {
     this.state.day += 1;
     this.state.today = this.freshDay(this.state.rep);
+    this.state.weather = pickWeather();
     this.save();
     this.hud.setDay(this.state.day, 0, CARS_PER_DAY, this.state.rep);
+    this.hud.setWeather(this.state.weather);
   }
 
   estimatePay(base) {
@@ -282,7 +292,7 @@ export class EconomyManager {
     const c = this.customer;
     if (!c) return null;
     const complete = progress >= 0.999;
-    const base = c.car.def.pay * (c.car.package?.mult || 1);
+    const base = c.car.def.pay * (c.car.package?.mult || 1) * (c.car.event?.pay || 1);
     // Bahşiş sadece eksiksiz teslimde ve süre dolmadan
     const timeFrac = complete ? Math.max(0, 1 - c.elapsed / c.target) : 0;
     const tip = base * 0.35 * timeFrac;
@@ -298,6 +308,14 @@ export class EconomyManager {
     const q = this.quote(progress);
     if (!q) return null;
     q.stars = this.rate(q, etched);
+    // Özel istek bonusu: eksiksiz teslim + 5★
+    q.bonus = 0;
+    const req = this.customer?.req;
+    if (req && q.complete && q.stars === 5) {
+      q.bonus = Math.round(this.customer.car.def.pay * (this.customer.car.package?.mult || 1) * (this.customer.car.event?.pay || 1) * req.bonus * this.multiplier);
+      q.total += q.bonus;
+    }
+    q.req = req;
     const pool = etched ? ETCHED_COMMENTS : COMMENTS[q.stars];
     q.comment = pool[(Math.random() * pool.length) | 0];
     const st = this.state;

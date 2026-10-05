@@ -120,6 +120,12 @@ Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `ne
 
 - **Kil Bar** (mağaza): katranlı araçlarda (Detaylı/Premium) "Katran" adımı; temiz ve ıslak yüzeyde etek/kapı altındaki koyu lekeleri ovarak söker.
 
+## Çeşitlilik
+
+- **Hava durumu:** her gün açık / yağmurlu / tuzlu kış; kir türünü ve ücreti değiştirir.
+- **Özel istekler:** müşteri bazen Acele ya da Kusursuz ister; 5★ ile teslimde bonus.
+- **Olay araçları:** Taksi, Düğün arabası, Çamurlu pikap (%12). Debug: `game.nextCar('standart','milano95','wedding')`, `game.setWeather('rain')`.
+
 ## İlerleme sistemleri
 
 - **Rehber:** ilk oyunda 5 adımlık görev listesi; Ayarlar → Rehber → Yeniden oynat.

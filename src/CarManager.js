@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { CAR_CATALOG, prepareGltfCar, buildProceduralCar, recolorPaint } from './CarModels.js';
+import { CAR_CATALOG, prepareGltfCar, buildProceduralCar, recolorPaint, pickEvent } from './CarModels.js';
+import { WEATHERS } from './Weather.js';
 import { classifyCarParts, PART } from './CarParts.js';
 import { PACKAGES, packageFor } from './Packages.js';
 import { DirtVolume, applyDirtShader } from './DirtVolume.js';
@@ -101,7 +102,7 @@ export class CarManager {
     return this.pickFrom(fresh.length ? fresh : pool);
   }
 
-  spawn(maxTier = 0, pkg = PACKAGES.standart, forceId, { tar = false } = {}) {
+  spawn(maxTier = 0, pkg = PACKAGES.standart, forceId, { tar = false, weather = 'clear', event: forceEvent = null } = {}) {
     const def = this.pickDef(maxTier, forceId);
     this.lastId = def.id;
     this.recent.push(def.id);
@@ -116,7 +117,8 @@ export class CarManager {
     root.updateMatrixWorld(true);
 
     const meshes = classifyCarParts(root, { atlas: def.atlas });
-    recolorPaint(meshes, def);
+    const event = pickEvent(def, forceEvent);
+    recolorPaint(meshes, def, event?.color);
     const materials = new Set(meshes.map((m) => m.material));
     const wheels = [];
     root.traverse((o) => /wheel/i.test(o.name) && wheels.push(o));
@@ -124,8 +126,10 @@ export class CarManager {
 
     const bounds = new THREE.Box3().setFromObject(root);
     const volume = new DirtVolume(bounds, { seed: (Math.random() * 1e6) | 0 });
-    const dirtiness = Math.random();
-    volume.generate({ mud: 0.25 + dirtiness * 0.75, stain: Math.random() }, surfaceMask(volume, surface));
+    // Kir miktarı hava durumuna (ve olay aracına) göre: yağmurda çamur, kışın tuz lekesi
+    const w = WEATHERS[weather] || WEATHERS.clear;
+    const range = (a) => a[0] + Math.random() * (a[1] - a[0]);
+    volume.generate({ mud: range(event?.mud || w.mud), stain: range(w.stain) }, surfaceMask(volume, surface));
     materials.forEach((m) => applyDirtShader(m, volume.uniforms, { tuneParts: !!def.tune }));
     const samples = sampleReachable(surface);
     volume.setSurfaceSamples(samples.positions, samples.parts, samples.normals);
@@ -155,6 +159,7 @@ export class CarManager {
       bounds,
       surface,
       package: pkg,
+      event,
       latch: {},
       customer: CUSTOMERS[(Math.random() * CUSTOMERS.length) | 0],
       state: 'compiling',

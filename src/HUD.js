@@ -1,4 +1,5 @@
 import { STEPS } from './Packages.js';
+import { WEATHERS } from './Weather.js';
 
 /**
  * DOM tabanlı HUD: temizlik barı, elindeki alet, müşteri, para, bildirimler.
@@ -123,7 +124,19 @@ export class HUD {
   }
 
   // ---------------------------------------------------------------- müşteri
-  setCustomer(name, carName, pay, pkg) {
+  /** Gün panelinde hava durumu satırı */
+  setWeather(id) {
+    const w = WEATHERS[id] || WEATHERS.clear;
+    const el = this.$('weather-line');
+    if (!el) return;
+    el.textContent = `${w.icon} ${w.label}${w.note ? ` · ${w.note}` : ''}`;
+    el.classList.toggle('hidden', id === 'clear');
+  }
+
+  setCustomer(name, carName, pay, pkg, req = null) {
+    const rq = this.$('customer-req');
+    rq.textContent = req ? `${req.label} — ${req.desc}` : '';
+    rq.classList.toggle('hidden', !req);
     this.$('customer-name').textContent = `${name} · ${carName}`;
     this.$('customer-pay').textContent = `~$${pay}`;
     const badge = this.$('customer-pkg');
@@ -146,6 +159,7 @@ export class HUD {
     this.$('customer-time').textContent = '—';
     this.$('timer-fill').style.width = '100%';
     this.$('customer-pkg').classList.add('hidden');
+    this.$('customer-req').classList.add('hidden');
   }
 
   // ---------------------------------------------------------------- para
@@ -196,11 +210,12 @@ export class HUD {
   }
 
   /** Gün sonu raporu; entries: [{ after, customer, carName, stars, total, pkg }] */
-  showDayReport({ day, today, rep, entries, perDay }) {
+  showDayReport({ day, today, rep, entries, perDay, weather = 'clear' }) {
     const avg = today.stars.length ? today.stars.reduce((a, b) => a + b, 0) / today.stars.length : 0;
     const delta = rep - today.repStart;
     const perfect = today.stars.filter((s) => s === 5).length;
-    this.$('report-title').textContent = `Gün ${day} tamamlandı`;
+    const w = WEATHERS[weather] || WEATHERS.clear;
+    this.$('report-title').textContent = `Gün ${day} tamamlandı · ${w.icon} ${w.label}`;
     this.$('report-rep-stars').innerHTML = starBar(rep);
     const rd = this.$('report-rep-delta');
     rd.textContent = `İtibar ${rep.toFixed(1)} (${delta >= 0 ? '+' : ''}${delta.toFixed(2)})`;

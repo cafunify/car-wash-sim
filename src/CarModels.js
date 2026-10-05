@@ -51,6 +51,28 @@ export const CAR_CATALOG = [
   DZ('libeccio91', "Libeccio V6 '91", 'libeccio_v6_91', { pay: 95, time: 190, tier: 2 }),
 ];
 
+/**
+ * Olay araçları: mevcut modellerin üzerine boya/ücret/istek bindirilir (%12 şansla).
+ *   pay — ücret çarpanı · mud — kir aralığı (verilirse hava durumunu geçersiz kılar)
+ *   forceRequest — müşteri isteği · onlyIds — yalnızca bu modellerde
+ */
+export const EVENTS = [
+  { id: 'taxi', name: 'Taksi', icon: '🚕', color: 0xf2c230, pay: 1.25, weight: 1 },
+  { id: 'wedding', name: 'Düğün arabası', icon: '💒', color: 0xf3f3f1, pay: 1.6, weight: 0.7, forceRequest: 'perfect', mud: [0.1, 0.4] },
+  { id: 'muddy', name: 'Çamurlu pikap', icon: '🚜', color: 0x6b5a3a, pay: 1.4, weight: 0.8, onlyIds: ['lct95', 'lct07'], mud: [0.9, 1] },
+];
+export const EVENT_CHANCE = 0.12;
+
+/** Bu model için olay seç (ya da null) */
+export function pickEvent(def, force = null) {
+  const pool = EVENTS.filter((e) => !e.onlyIds || e.onlyIds.includes(def.id));
+  if (force) return pool.find((e) => e.id === force) || EVENTS.find((e) => e.id === force) || null;
+  if (Math.random() >= EVENT_CHANCE || !pool.length) return null;
+  let r = Math.random() * pool.reduce((a, e) => a + e.weight, 0);
+  for (const e of pool) { r -= e.weight; if (r <= 0) return e; }
+  return pool[0];
+}
+
 /** Gerçekçi araç boyası renkleri (metalik) */
 export const PAINT_COLORS = [
   0xb3121d, 0x0f2a5c, 0x1d1f24, 0xe8e9eb, 0x8a9199, 0x2d4f3a, 0x5b6b7a, 0x7a1f2b,
@@ -151,8 +173,8 @@ function autoOrient(pivot, inner) {
  * Sınıflandırmadan sonra boya malzemesine rastgele metalik renk ver
  * (dokusuz boya malzemelerinde; atlas dokulu modeller kendi rengini korur).
  */
-export function recolorPaint(meshes, def) {
-  const color = new THREE.Color(PAINT_COLORS[(Math.random() * PAINT_COLORS.length) | 0]);
+export function recolorPaint(meshes, def, forced = null) {
+  const color = new THREE.Color(forced ?? PAINT_COLORS[(Math.random() * PAINT_COLORS.length) | 0]);
   const done = new Set();
   for (const m of meshes) {
     const part = m.geometry.attributes.aPart?.getX(0);
