@@ -157,7 +157,7 @@ export class EconomyManager {
       rep: START_REP, day: 1, today: this.freshDay(START_REP),
       life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, tar: 0, events: 0, requests: 0, streak: 0, bestStreak: 0, days: 0 }, ach: {}, goal: null, tutorialDone: false, weather: 'clear',
       levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, claybar: 0, pinkfoam: 0, shop: 0 },
-      settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', fps: false, touch: !!globalThis.matchMedia?.('(pointer: coarse)').matches },
+      settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', qualityAuto: true, qualityProbed: null, fps: false, touch: !!globalThis.matchMedia?.('(pointer: coarse)').matches },
     };
   }
 
@@ -173,6 +173,8 @@ export class EconomyManager {
       const s = JSON.parse(raw);
       // Rehberden önce oynayan eski kayıtlar rehberi görmez
       if (s.tutorialDone === undefined) s.tutorialDone = true;
+      // Otomatik grafik öncesi kaydedilmiş oyuncuların seçtiği ayara dokunulmaz
+      if (s.settings && s.settings.qualityAuto === undefined) s.settings.qualityAuto = false;
       return { ...def, ...s, levels: { ...def.levels, ...(s.levels || {}) }, settings: { ...def.settings, ...(s.settings || {}) }, life: { ...def.life, ...(s.life || {}) }, ach: { ...(s.ach || {}) } };
     } catch {
       return def;

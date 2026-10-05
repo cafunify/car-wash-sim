@@ -168,9 +168,9 @@ body.free-mouse #crosshair { transition: none; }
 #timer-fill.expired { background: #6b7280; }
 
 /* Para */
+#top-right { position: absolute; top: 18px; right: 18px; display: flex; align-items: center; gap: 10px; }
 #money-panel {
-  top: 18px;
-  right: 18px;
+  position: static;
   padding: 10px 18px 10px 12px;
   display: flex;
   align-items: center;
@@ -635,9 +635,7 @@ body.free-mouse #crosshair { transition: none; }
 @keyframes scanPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(53, 208, 255, 0); } 50% { box-shadow: 0 0 0 6px rgba(53, 208, 255, 0.35); } }
 
 #fps {
-  position: absolute;
-  top: 98px;
-  right: 18px;
+  position: static;
   padding: 4px 10px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.55);
@@ -835,7 +833,7 @@ body.touch-mode #touch-ui.show { display: block; }
 body.touch-mode #keys-help, body.touch-mode #scan-hint, body.touch-mode #customer-panel { display: none; }
 body.touch-mode #progress-panel { left: 50%; width: min(560px, 60vw); transform: translateX(-50%) scale(0.74); transform-origin: top center; top: 8px; }
 body.touch-mode #day-panel { transform: scale(0.78); transform-origin: top right; right: 12px; top: 64px; }
-body.touch-mode #money-panel { transform: scale(0.8); transform-origin: top right; right: 12px; top: 10px; }
+body.touch-mode #top-right { transform: scale(0.8); transform-origin: top right; right: 12px; top: 10px; }
 body.touch-mode #held-tool { left: 12px; top: 72px; bottom: auto; transform: scale(0.72); transform-origin: top left; }
 body.touch-mode #held-tool small { display: none; }
 body.touch-mode #tool-hint { bottom: 150px; }
@@ -891,3 +889,5 @@ body.touch-mode #tutorial { top: 120px; transform: scale(0.8); transform-origin:
 /* Hava durumu, özel istek */
 .day-weather { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 12px; max-width: 190px; color: #a8d8ff; }
 .customer-req { margin: 6px 0; padding: 5px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; background: rgba(255, 211, 90, 0.14); border: 1px solid rgba(255, 211, 90, 0.45); color: #ffe39a; }
+
+.auto-note { margin: -6px 0 14px; font-size: 13px; color: #a8d8ff; }

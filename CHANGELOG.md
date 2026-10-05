@@ -3,6 +3,11 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.9.2
+- FPS göstergesi para panelinin soluna taşındı (gün paneline binmiyor)
+- Otomatik grafik: ilk açılışta GPU adı, CPU/RAM ve kısa kare ölçümüyle cihaza uygun seviye seçilir (yazılımsal/entegre GPU düşük, güçlü GPU yüksek); giriş ekranında bildirilir
+- Ayarlar → Grafik → "Otomatik" ile yeniden ölçülür; elle seçim otomatiği kapatır. Otomatik modda FPS 6 sn <24 kalırsa seviye bir kademe düşer. Eski kayıtların ayarı değişmez
+
 ## v0.9.1
 - Hava durumu: her gün açık, yağmurlu (çamurlu araçlar, ücret ×1.1) ya da tuzlu kış (tuz lekeli araçlar, ücret ×1.15); gün panelinde ve raporda görünür
 - Özel müşteri istekleri: Acele (süre ×0.6) ve Kusursuz; 5★ ile teslimde bonus
