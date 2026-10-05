@@ -287,6 +287,14 @@ export class AudioManager {
     [523, 659, 784, 988, 1175].forEach((f, i) => this.tone(f, { start: i * 0.08, dur: 0.6, vol: 0.035 }));
   }
 
+  /** Parça/adım bitti: kısa "ding"; step arttıkça pentatonik nota yükselir */
+  ding(step = 0) {
+    const notes = [1047, 1175, 1319, 1568, 1760, 2093];
+    const f = notes[Math.min(step, notes.length - 1)];
+    this.tone(f, { dur: 0.45, vol: 0.04 });
+    this.tone(f * 2, { start: 0.02, dur: 0.3, vol: 0.014 });
+  }
+
   click() {
     this.tone(1400, { dur: 0.03, vol: 0.02 });
   }

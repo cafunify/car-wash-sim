@@ -40,6 +40,15 @@ export class HUD {
     this.heldEl.innerHTML = `<span class="icon">${def.icon}</span><span><b>${def.name}</b><small>${sub}</small></span>`;
   }
 
+  /** Adım tamamlanınca adım çipi kısa süre parlar */
+  pulseStep(id) {
+    const el = this.layerEls[id];
+    if (!el) return;
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+  }
+
   /** Nişangâhın altında etkileşim ipucu; null gizler */
   setPrompt(html) {
     if (html === this.lastPrompt) return;

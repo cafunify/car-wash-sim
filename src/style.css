@@ -848,3 +848,19 @@ html, body { overscroll-behavior: none; }
 .touch-help b { color: var(--text); margin-right: 6px; }
 body.touch-mode .touch-help { display: block; }
 body.touch-mode .start-side .controls-grid, body.touch-mode .start-side .tip { display: none; }
+
+/* Oyun hissi: adım bitince çip parlar, bölge toast'ı, teslimde yıldızlar sırayla dolar */
+.step.flash { animation: stepFlash 0.9s ease-out; }
+@keyframes stepFlash {
+  0% { box-shadow: 0 0 0 0 var(--c, #35d0ff); transform: scale(1); }
+  30% { box-shadow: 0 0 18px 4px var(--c, #35d0ff); transform: scale(1.08); background: color-mix(in srgb, var(--c, #35d0ff) 35%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+}
+.toast.region { color: #b8f5d0; text-shadow: 0 3px 0 #0b3a24, 0 0 18px rgba(62, 228, 138, 0.5); font-size: 0.8em; }
+.dc-stars .star { display: inline-block; animation: starPop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+.dc-stars .star:nth-child(1) { animation-delay: 2.4s; }
+.dc-stars .star:nth-child(2) { animation-delay: 2.6s; }
+.dc-stars .star:nth-child(3) { animation-delay: 2.8s; }
+.dc-stars .star:nth-child(4) { animation-delay: 3.0s; }
+.dc-stars .star:nth-child(5) { animation-delay: 3.2s; }
+@keyframes starPop { from { opacity: 0; transform: scale(0.2) rotate(-40deg); } }

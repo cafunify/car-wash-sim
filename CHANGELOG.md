@@ -3,6 +3,11 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.7.0
+- Parça bazlı geri bildirim: kaput, tavan, bagaj, yanlar ve tamponlar temizlenince küçük parıltı, "ding" ve ✓ bildirimi
+- Adım bitince adım çipi parlar ve ses çalar
+- Teslim kartında yıldızlar sırayla dolar
+
 ## v0.6.0
 - Mobil kontroller: Ayarlar → "Mobil kontroller" (dokunmatik cihazda varsayılan açık). Sol joystick (yürü/koş), ekranda sürükleyerek bakış, büyük KULLAN düğmesi, Su/Köpük, E, Q, C, F, T, Menü ve Mağaza düğmeleri
 - Dokunmatik modda giriş ekranı dokunmatik kontrolleri anlatır, HUD küçülür, dikey duruşta "telefonu yatay çevir" uyarısı
