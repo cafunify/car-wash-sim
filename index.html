@@ -163,6 +163,7 @@
       <div class="start-actions">
         <button id="start-btn" class="btn-primary" disabled>Yükleniyor…</button>
         <button class="btn-ghost open-ach" disabled>🏆 Başarımlar</button>
+        <button class="btn-ghost open-album" disabled>📷 Albüm</button>
         <button class="btn-ghost open-settings" disabled>⚙ Ayarlar</button>
       </div>
      </div>
@@ -208,10 +209,12 @@
         </div>
         <div class="shop-money"><span>$</span><b id="shop-money">0</b></div>
       </div>
+      <div class="shop-tabs"><button class="shop-tab on" data-tab="gear">🛠 Ekipman</button><button class="shop-tab" data-tab="decor">🪴 Dekor</button></div>
       <div id="shop-items"></div>
       <div class="shop-footer">
         <div>
           <button class="btn-ghost open-ach">🏆 Başarımlar</button>
+          <button class="btn-ghost open-album">📷 Albüm</button>
           <button id="reset-btn" class="btn-ghost">İlerlemeyi sıfırla</button>
           <button class="btn-ghost open-settings">⚙ Ayarlar</button>
         </div>
@@ -289,6 +292,14 @@
   </div>
 
   <!-- Başarımlar -->
+  <div id="album" class="overlay hidden">
+    <div class="shop-card album-card">
+      <div class="shop-header"><div><h2>📷 Garaj albümü</h2><p><b id="album-count"></b></p></div></div>
+      <div id="album-body"></div>
+      <div class="shop-footer"><span></span><button id="album-close" class="btn-primary">Kapat</button></div>
+    </div>
+  </div>
+
   <div id="ach" class="overlay hidden">
     <div class="shop-card ach-card">
       <div class="shop-header"><div><h2>🏆 Başarımlar</h2><p>Kazandıkların: <b id="ach-count"></b></p></div></div>

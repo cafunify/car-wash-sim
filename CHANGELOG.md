@@ -3,6 +3,30 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v1.2.0
+- Duvar saati (mağazada $60): sağ duvarda gerçek yerel saati gösterir
+- Anı rafı: her müdavim son ziyarette küçük bir eşya bırakır (oyuncak Milano, elma ve kitaplar, anahtar, domates sepeti, kep, kupa, reçel); raf sol duvarda çay köşesinin yanında
+
+## v1.1.0
+- Yeni dekorlar: dükkân kedisi (nefes alır, E ile sevilir), buharı tüten çay köşesi, hafif titreyen ışık dizisi, neon "AÇIK" tabelası (pembe/camgöbeği/kehribar), albüm duvarı (en iyi 3 fotoğraf)
+- Bitkiler daha dolgun ve yapraklı yeniden çizildi (saksı bitkisi, sarkan yapraklı palmiye)
+
+## v1.0.0
+- Dükkân kişiselleştirme (mağazada yeni Dekor sekmesi): özel tabela yazısı (üç garaj seviyesinde de görünür, uzun yazı sığacak şekilde küçülür), duvar posterleri (en fazla 3 asılı), saksı bitkisi ve palmiye
+- Radyo istasyonları: Klasik Lo-fi, Pazar Sabahı (majör), Gece Yarısı (minör)
+- Hasan Amca, Zehra Öğretmen ve Selim Bey son ziyarette poster hediye eder
+- Tabela yazısı yazılırken oyun kısayolları devre dışı kalır
+
+## v0.11.0
+- Garaj albümü: ≥4★ teslimlerin önce/sonra fotoğrafları albüme kaydedilir (en fazla 18, ayrı `localStorage` anahtarı)
+- Araç koleksiyonu (yıkanan modeller açılır, diğerleri ???) ve müdavim kartları
+- 📷 Albüm düğmesi başlangıç ekranında ve mağazada; telefon genişliğinde tek sütun
+
+## v0.10.0
+- Müdavimler: 7 isimli müşteri favori araçlarıyla ara sıra gelir, her ziyarette küçük bir hikâye anlatır (3 ziyaret), son ziyarette hediye bırakır
+- Cezasız tasarım: hikâye yıldızdan bağımsız ilerler; ≥3★ teslimde müdavimin teşekkür yorumu görünür
+- Yeni başarım: Mahalle dostu (tüm hikâyeleri tamamla)
+
 ## v0.9.2
 - FPS göstergesi para panelinin soluna taşındı (gün paneline binmiyor)
 - Otomatik grafik: ilk açılışta GPU adı, CPU/RAM ve kısa kare ölçümüyle cihaza uygun seviye seçilir (yazılımsal/entegre GPU düşük, güçlü GPU yüksek); giriş ekranında bildirilir

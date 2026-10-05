@@ -22,10 +22,21 @@ const CHORDS = {
   Am9: { bass: 45, voicing: [55, 59, 60, 64], scale: [67, 69, 72, 76, 79] },
   G13: { bass: 43, voicing: [53, 57, 59, 64], scale: [67, 71, 74, 76, 79] },
 };
-const PROGRESSIONS = [
-  ['Fmaj9', 'Em9', 'Dm9', 'Cmaj9'],
-  ['Am9', 'Dm9', 'G13', 'Cmaj9'],
-];
+const STATIONS = {
+  lofi: [
+    ['Fmaj9', 'Em9', 'Dm9', 'Cmaj9'],
+    ['Am9', 'Dm9', 'G13', 'Cmaj9'],
+  ],
+  // Radyo istasyonları (mağaza → Dekor): aydınlık majör ve loş minör
+  sunday: [
+    ['Cmaj9', 'Fmaj9', 'Cmaj9', 'G13'],
+    ['Fmaj9', 'Cmaj9', 'G13', 'Am9'],
+  ],
+  night: [
+    ['Am9', 'Dm9', 'Em9', 'Am9'],
+    ['Dm9', 'G13', 'Cmaj9', 'Am9'],
+  ],
+};
 
 export class LofiMusic {
   constructor(ctx, destination) {
@@ -36,6 +47,7 @@ export class LofiMusic {
     this.nextTime = 0;
     this.timer = null;
     this.lastMelody = 2;
+    this.progressions = STATIONS.lofi;
 
     // Müzik zinciri: sesler → sıcak alçak geçiren → kuru + yankı → çıkış
     this.out = ctx.createGain();
@@ -131,6 +143,10 @@ export class LofiMusic {
     this.crackleGain.connect(this.out);
   }
 
+  setStation(id) {
+    this.progressions = STATIONS[id] || STATIONS.lofi;
+  }
+
   setVolume(v) {
     this.volume = v;
     if (this.enabled) this.out.gain.setTargetAtTime(0.32 * v, this.ctx.currentTime, 0.1);
@@ -165,7 +181,7 @@ export class LofiMusic {
   }
 
   get chord() {
-    const prog = PROGRESSIONS[Math.floor(this.bar / 8) % PROGRESSIONS.length];
+    const prog = this.progressions[Math.floor(this.bar / 8) % this.progressions.length];
     return CHORDS[prog[this.bar % 4]];
   }
 

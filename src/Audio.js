@@ -31,6 +31,7 @@ export class AudioManager {
     this.bubbleRate = 0;
     this.dripRate = 0;
     this.musicOn = true;
+    this.station = 'lofi';
     this.sfxVolume = 1;
     this.musicVolume = 1;
   }
@@ -83,6 +84,13 @@ export class AudioManager {
     this.music = new LofiMusic(ctx, this.master);
     this.music.setVolume(this.musicVolume);
     this.music.setEnabled(this.musicOn);
+    this.music.setStation(this.station);
+  }
+
+  /** Radyo istasyonu (lofi / sunday / night) */
+  setStation(id) {
+    this.station = id;
+    this.music?.setStation(id);
   }
 
   /** Fon müziğini aç/kapat */

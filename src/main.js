@@ -6,7 +6,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-import { Environment, WALK_BOUNDS } from './Environment.js';
+import { Environment, WALK_BOUNDS, ROOM } from './Environment.js';
 import { REGIONS } from './DirtVolume.js';
 import { WEATHERS } from './Weather.js';
 import { classifyGpu, gpuName, levelFromMs, benchmarkMs, deviceInfo, LEVEL_NAMES, LEVELS } from './Perf.js';
@@ -14,6 +14,9 @@ import { CarManager } from './CarManager.js';
 import { CAR_CATALOG } from './CarModels.js';
 import { Effects } from './Particles.js';
 import { Tools, TOOL_DEFS, toolIndex } from './Tools.js';
+import { DecorView, decorById } from './Decor.js';
+import { Album } from './Album.js';
+import { pickRegular, recordVisit, lineFor } from './Regulars.js';
 import { EconomyManager, SHOP_LEVEL_NAMES, CARS_PER_DAY } from './EconomyManager.js';
 import { HUD } from './HUD.js';
 import { AudioManager } from './Audio.js';
@@ -159,6 +162,10 @@ class Game {
 
     this.bindInput();
     this.bindSettings();
+    this.decor = new DecorView(scene, ROOM.halfX);
+    this.album = new Album({ economy: this.economy, audio: this.audio });
+    this.album.onChange = () => this.decor.setPhotos(this.album.best());
+    this.applyDecor();
     this.tutorial = new Tutorial({ game: this });
     load.done();
     this.showAutoNote();
@@ -184,7 +191,8 @@ class Game {
   spawnCar() {
     this.lastStats = null;
     const pkg = pickPackage(this.economy.owns, this.economy.state.rep);
-    const car = this.cars.spawn(this.economy.shopLevel, pkg, undefined, { tar: this.economy.level('claybar') > 0, weather: this.economy.state.weather });
+    const reg = pickRegular(this.economy.state, this.economy.shopLevel, (id) => this.cars.templates.has(id));
+    const car = this.cars.spawn(this.economy.shopLevel, pkg, reg?.car, { tar: this.economy.level('claybar') > 0, weather: this.economy.state.weather, regular: reg });
     this.applyCosmetics();
     // Araca özel paket: kuş pisliği / böcek yoksa "Kuş/Böcek" adımı yok
     this.hud.setPackage(car.package);
@@ -213,7 +221,8 @@ class Game {
       hint.classList.add('pulse');
     }
     const steps = car.package.steps.map((id) => STEPS[id].label).join(' ➔ ');
-    const ev = car.event ? `${car.event.icon} <b>${car.event.name}</b> geldi! (ücret ×${car.event.pay})` : `<b>${car.customer}</b> ${car.def.name} ile geldi!`;
+    const story = car.regular ? lineFor(this.economy.state, car.regular) : null;
+    const ev = story ? `🏘 <b>${car.customer}</b> geldi! <small>(${story.visit}. ziyaret)</small><br><small>${story.arrive}</small>` : car.event ? `${car.event.icon} <b>${car.event.name}</b> geldi! (ücret ×${car.event.pay})` : `<b>${car.customer}</b> ${car.def.name} ile geldi!`;
     const rq = this.economy.customer?.req ? `<br><small>İstek: ${this.economy.customer.req.label} — ${this.economy.customer.req.desc}</small>` : '';
     this.hud.message(`${ev}<br><small>${car.package.name}: ${steps}</small>${rq}`, 5);
   }
@@ -224,6 +233,7 @@ class Game {
     this.deliverArmed = 0;
     const res = this.economy.payout(progress, { etched: car?.birdEtched });
     // "Sonra" fotoğrafı bu karenin sonunda çekilir, teslim kartı onunla açılır
+    if (res && car?.regular) this.onRegularDelivered(car, res);
     if (res) {
       this.pendingShot = { kind: 'after', car, res };
       this.progress.onDelivery({ stars: res.stars, tip: res.tip, complete: res.complete, hadSpots: !!car?.package.steps.includes('spots'), hadTar: !!car?.package.steps.includes('tar'), eventCar: !!car?.event, bonus: res.bonus });
@@ -244,6 +254,28 @@ class Game {
     }
   }
 
+  /** Dekor: tabela yazısı, posterler, bitkiler, radyo */
+  applyDecor() {
+    const d = this.economy.state.decor;
+    this.env.setSignText(d.sign);
+    this.decor.apply(d);
+    this.audio.setStation(d.radio);
+    this.decor.setPhotos(this.album?.best() || []);
+  }
+
+  /** Müdavim teslimi: hikâye ilerler, ≥3★ ile teşekkür yorumu, son ziyarette hediye */
+  onRegularDelivered(car, res) {
+    const r = recordVisit(this.economy.state, car.regular);
+    if (res.stars >= 3) res.comment = r.thanks;
+    if (r.gift) {
+      this.economy.addMoney(r.gift);
+      const names = [r.decor, r.memory].filter((id) => id && this.economy.giveDecor(id)).map((id) => decorById(id).name);
+      const gift = names.length ? ` · ${names.join(' ve ')} dükkânına eklendi` : '';
+      this.hud.toast(`🏘 ${car.customer} hikâyesi tamam`, `Küçük bir teşekkür: +$${r.gift}${gift}`);
+    }
+    this.economy.save();
+  }
+
   /** Kare sonunda (ana çizimden önce) bekleyen önce/sonra fotoğrafını çek */
   takePendingShot() {
     const shot = this.pendingShot;
@@ -257,6 +289,7 @@ class Game {
       return;
     }
     const { car, res } = shot;
+    this.album.record({ car, res, before: car.beforeShot, after: img });
     this.dayEntries.push({ after: img, customer: car.customer, carName: car.def.name, stars: res.stars, total: res.total, pkg: car.package });
     this.hud.showDelivery({
       before: car.beforeShot, after: img, customer: car.customer, carName: car.def.name,
@@ -505,6 +538,7 @@ class Game {
   }
 
   onUpgrade(id, level) {
+    if (id === 'decor' || id === 'reset') this.applyDecor?.();
     if (id === 'shop' || id === 'reset') this.applyLevel(this.economy.shopLevel);
     if (id === 'reset') this.progress.ensureGoal();
     else this.progress?.check();
@@ -601,6 +635,7 @@ class Game {
     });
 
     window.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLInputElement) return; // tabela yazısı yazılırken oyun tuşları çalışmasın
       if (e.code === 'Tab') e.preventDefault();
       if (e.repeat) return;
 
@@ -774,6 +809,10 @@ class Game {
 
   interact() {
     const h = this.rackHover;
+    if (!h && this.decor.nearCat(this.camera.position)) {
+      this.decor.purr();
+      return this.hud.toast('🐈 Mırr…', 'Kedi gözünü bile açmadan mırıldandı', 'info');
+    }
     if (!h) return this.hud.hint('Aletler aracın sağındaki rafta — rafa bakıp E\'ye bas', 2.5);
     if (h.shop) return this.openShop();
     if (this.tools.index === h.tool) this.tools.putDown();
@@ -947,6 +986,7 @@ class Game {
 
     this.updateRackHover();
     this.rack.update(this.time);
+    this.decor.update(dt, this.time);
     this.cars.update(dt, this.time);
     this.updateProgress(dt);
     this.audio.update(dt);
@@ -1010,6 +1050,17 @@ class Game {
         this.applyCosmetics();
         this.hud.setPackage(car.package);
         this.hints = new Set();
+      },
+      regular: async (id) => {
+        const reg = pickRegular(this.economy.state, this.economy.shopLevel, () => true, id);
+        if (!reg) return null;
+        await this.cars.loadDef(CAR_CATALOG.find((d) => d.id === reg.car));
+        this.cars.disposeCar();
+        const car = this.cars.spawn(this.economy.shopLevel, pickPackage(this.economy.owns), reg.car, { weather: this.economy.state.weather, regular: reg });
+        this.applyCosmetics();
+        this.hud.setPackage(car.package);
+        this.hints = new Set();
+        return reg.name;
       },
       setWeather: (w) => { this.economy.state.weather = w; this.economy.save(); this.hud.setWeather(w); },
       teleport: (x, z, lookX = 0, lookY = 1, lookZ = 0) => {
