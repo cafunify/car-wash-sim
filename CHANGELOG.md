@@ -3,6 +3,11 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.8.0
+- İlk açılış rehberi: 5 adımlık kontrol listesi (yürü, çamuru sök, köpükle, durula, teslim); Atla düğmesi, Ayarlar'dan yeniden oynat. Eski kayıtlar rehberi görmez
+- Günlük hedef: her gün bir hedef (ör. 3 bahşiş, 2 kusursuz iş), tamamlanınca para ödülü; gün panelinde görünür
+- 12 başarım ve Başarımlar paneli (başlangıç ekranı ve mağazadan açılır)
+
 ## v0.7.0
 - Parça bazlı geri bildirim: kaput, tavan, bagaj, yanlar ve tamponlar temizlenince küçük parıltı, "ding" ve ✓ bildirimi
 - Adım bitince adım çipi parlar ve ses çalar

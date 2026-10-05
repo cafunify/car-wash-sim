@@ -145,6 +145,7 @@ export class EconomyManager {
     return {
       money: START_MONEY, washed: 0, totalEarned: 0,
       rep: START_REP, day: 1, today: this.freshDay(START_REP),
+      life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, streak: 0, bestStreak: 0, days: 0 }, ach: {}, goal: null, tutorialDone: false,
       levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, pinkfoam: 0, shop: 0 },
       settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', fps: false, touch: !!globalThis.matchMedia?.('(pointer: coarse)').matches },
     };
@@ -160,7 +161,9 @@ export class EconomyManager {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return def;
       const s = JSON.parse(raw);
-      return { ...def, ...s, levels: { ...def.levels, ...(s.levels || {}) }, settings: { ...def.settings, ...(s.settings || {}) } };
+      // Rehberden önce oynayan eski kayıtlar rehberi görmez
+      if (s.tutorialDone === undefined) s.tutorialDone = true;
+      return { ...def, ...s, levels: { ...def.levels, ...(s.levels || {}) }, settings: { ...def.settings, ...(s.settings || {}) }, life: { ...def.life, ...(s.life || {}) }, ach: { ...(s.ach || {}) } };
     } catch {
       return def;
     }

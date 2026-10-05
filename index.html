@@ -54,6 +54,13 @@
       <div class="day-rep" title="İtibar: yüksek itibar daha çok kazanç ve daha pahalı paket getirir">
         <span id="rep-stars"></span><small id="rep-value">3.0</small>
       </div>
+      <div id="goal-line" class="day-goal hidden"></div>
+    </div>
+
+    <!-- İlk açılış rehberi -->
+    <div id="tutorial" class="panel hidden">
+      <div class="tut-head"><b>🎓 Rehber</b><button id="tutorial-skip" class="btn-ghost">Atla</button></div>
+      <ol id="tutorial-list"></ol>
     </div>
 
     <!-- Yeni müşteri geçişi: araç hazırlanırken (ağır iş) kısa animasyon -->
@@ -150,6 +157,7 @@
 
       <div class="start-actions">
         <button id="start-btn" class="btn-primary" disabled>Yükleniyor…</button>
+        <button class="btn-ghost open-ach" disabled>🏆 Başarımlar</button>
         <button class="btn-ghost open-settings" disabled>⚙ Ayarlar</button>
       </div>
      </div>
@@ -198,6 +206,7 @@
       <div id="shop-items"></div>
       <div class="shop-footer">
         <div>
+          <button class="btn-ghost open-ach">🏆 Başarımlar</button>
           <button id="reset-btn" class="btn-ghost">İlerlemeyi sıfırla</button>
           <button class="btn-ghost open-settings">⚙ Ayarlar</button>
         </div>
@@ -262,10 +271,23 @@
         <span>📱 Mobil kontroller</span>
         <input type="checkbox" id="set-touch" />
       </label>
+      <div class="set-row">
+        <span>🎓 Rehber</span>
+        <button id="set-tutorial" class="btn-ghost">Yeniden oynat</button>
+      </div>
       <p class="set-note">Açıkken ekranda joystick, bakış alanı ve düğmeler çıkar (yatay tut).</p>
       <div class="settings-footer">
         <button id="settings-close" class="btn-primary">Tamam</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Başarımlar -->
+  <div id="ach" class="overlay hidden">
+    <div class="shop-card ach-card">
+      <div class="shop-header"><div><h2>🏆 Başarımlar</h2><p>Kazandıkların: <b id="ach-count"></b></p></div></div>
+      <div id="ach-list"></div>
+      <div class="shop-footer"><span></span><button id="ach-close" class="btn-primary">Kapat</button></div>
     </div>
   </div>
 
