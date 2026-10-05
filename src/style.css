@@ -914,3 +914,11 @@ body.touch-mode #tutorial { top: 120px; transform: scale(0.8); transform-origin:
   .al-photos, .al-regs { grid-template-columns: 1fr; }
   .al-cars { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Mağaza sekmeleri ve dekor */
+.shop-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.shop-tab { padding: 8px 16px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04); color: inherit; cursor: pointer; font: inherit; font-weight: 600; }
+.shop-tab.on { background: rgba(80, 200, 255, 0.18); border-color: rgba(80, 200, 255, 0.5); }
+.sign-input { width: 100%; box-sizing: border-box; margin: 8px 0 6px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0, 0, 0, 0.3); color: inherit; font: inherit; font-weight: 700; letter-spacing: 1px; }
+.sign-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.sign-presets .chip { padding: 4px 8px; font-size: 11px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.06); color: inherit; cursor: pointer; width: auto; }

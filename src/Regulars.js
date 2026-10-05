@@ -8,7 +8,7 @@ const MIN_CARS = 3; // ilk araçlar sakin geçsin (rehber)
 
 export const REGULARS = [
   {
-    id: 'hasan', name: 'Hasan Amca', car: 'milano95', shop: 0, gift: 60,
+    id: 'hasan', name: 'Hasan Amca', car: 'milano95', shop: 0, gift: 60, decor: 'p_photo',
     story: [
       { arrive: 'Milano’sunu 95’ten beri kimseye bırakmaz. “Bir tek sana güveniyorum evladım.”', thanks: 'Eline sağlık. Bu araba bana gençliğimi hatırlatıyor.' },
       { arrive: 'Bu sefer yanında torunuyla geldi: “Dede arabası parlasın!”', thanks: 'Torunum bayıldı! Yarın okula bununla gidelim diyor.' },
@@ -16,7 +16,7 @@ export const REGULARS = [
     ],
   },
   {
-    id: 'zehra', name: 'Zehra Öğretmen', car: 'compact07', shop: 0, gift: 60,
+    id: 'zehra', name: 'Zehra Öğretmen', car: 'compact07', shop: 0, gift: 60, decor: 'p_child',
     story: [
       { arrive: 'Karne gününden önce arabasını yıkatmak istiyor, çocuklar “Hocam yeni araba mı?” desin diye.', thanks: 'Çocuklar fark edecek! Teşekkürler.' },
       { arrive: 'Arka koltukta bir kutu çizim var: öğrencilerinin resimleri.', thanks: 'Bir dahaki sefere sana da bir resim getireceğim.' },
@@ -48,7 +48,7 @@ export const REGULARS = [
     ],
   },
   {
-    id: 'selim', name: 'Selim Bey', car: 'asti89', shop: 1, gift: 100,
+    id: 'selim', name: 'Selim Bey', car: 'asti89', shop: 1, gift: 100, decor: 'p_race',
     story: [
       { arrive: 'Eski bir yarış pilotu. “Bu araba bir zamanlar pistlerde koştu.”', thanks: 'Eski günleri hatırladım, teşekkürler.' },
       { arrive: 'Bagajda yıpranmış bir kupa var, parlatmanı istiyor.', thanks: 'Kupa da araba da yeni gibi. Kıymetini bilen biri çıktı.' },
@@ -94,7 +94,7 @@ export function recordVisit(state, reg) {
   const line = lineFor(state, reg);
   rec.visits += 1;
   rec.lastDay = state.day;
-  return { ...line, gift: line.last ? reg.gift : 0 };
+  return { ...line, gift: line.last ? reg.gift : 0, decor: line.last ? reg.decor : null };
 }
 
 export const storyDone = (state, reg) => visitsOf(state, reg.id) >= reg.story.length;

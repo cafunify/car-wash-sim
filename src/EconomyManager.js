@@ -1,5 +1,6 @@
 import { availablePackages, PACKAGES } from './Packages.js';
 import { TOWEL_ICON, CLAY_ICON } from './Icons.js';
+import { DECOR, MAX_POSTERS, SIGN_MAX, decorById, defaultDecor, renderDecorShop } from './Decor.js';
 import { WEATHERS, REQUESTS, pickWeather } from './Weather.js';
 
 /**
@@ -128,11 +129,14 @@ export class EconomyManager {
     this.onUpgrade = onUpgrade;
     this.state = this.load();
     this.customer = null;
+    this.shopTab = 'gear';
 
     this.shopEl = document.getElementById('shop');
     this.itemsEl = document.getElementById('shop-items');
     this.shopMoneyEl = document.getElementById('shop-money');
     this.itemsEl.addEventListener('click', (e) => {
+      const dk = e.target.closest('button');
+      if (dk && this.shopTab === 'decor') return this.decorClick(dk);
       const btn = e.target.closest('button[data-buy]');
       if (btn) this.buy(btn.dataset.buy);
       const tog = e.target.closest('button[data-toggle]');
@@ -144,6 +148,11 @@ export class EconomyManager {
         this.onUpgrade?.(k, this.level(k));
       }
     });
+    document.querySelectorAll('.shop-tab').forEach((b) => b.addEventListener('click', () => {
+      this.shopTab = b.dataset.tab;
+      this.audio.click();
+      this.renderShop();
+    }));
     this.hud.setMoney(this.state.money, false);
     this.hud.setWashed(this.state.washed);
     this.hud.setDay(this.state.day, this.state.today.cars, CARS_PER_DAY, this.state.rep);
@@ -155,7 +164,7 @@ export class EconomyManager {
     return {
       money: START_MONEY, washed: 0, totalEarned: 0,
       rep: START_REP, day: 1, today: this.freshDay(START_REP),
-      life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, tar: 0, events: 0, requests: 0, streak: 0, bestStreak: 0, days: 0, models: [] }, ach: {}, goal: null, tutorialDone: false, weather: 'clear', regulars: {},
+      life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, tar: 0, events: 0, requests: 0, streak: 0, bestStreak: 0, days: 0, models: [] }, ach: {}, goal: null, tutorialDone: false, weather: 'clear', regulars: {}, decor: defaultDecor(),
       levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, claybar: 0, pinkfoam: 0, shop: 0 },
       settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', qualityAuto: true, qualityProbed: null, fps: false, touch: !!globalThis.matchMedia?.('(pointer: coarse)').matches },
     };
@@ -175,7 +184,7 @@ export class EconomyManager {
       if (s.tutorialDone === undefined) s.tutorialDone = true;
       // Otomatik grafik öncesi kaydedilmiş oyuncuların seçtiği ayara dokunulmaz
       if (s.settings && s.settings.qualityAuto === undefined) s.settings.qualityAuto = false;
-      return { ...def, ...s, levels: { ...def.levels, ...(s.levels || {}) }, settings: { ...def.settings, ...(s.settings || {}) }, life: { ...def.life, ...(s.life || {}) }, ach: { ...(s.ach || {}) } };
+      return { ...def, ...s, levels: { ...def.levels, ...(s.levels || {}) }, settings: { ...def.settings, ...(s.settings || {}) }, life: { ...def.life, ...(s.life || {}) }, ach: { ...(s.ach || {}) }, decor: { ...def.decor, ...(s.decor || {}) } };
     } catch {
       return def;
     }
@@ -369,8 +378,57 @@ export class EconomyManager {
     this.onUpgrade?.(id, lvl + 1);
   }
 
+  // ---------------------------------------------------------------- dekor (kozmetik)
+  /** Müdavim hediyesi vb.: parçayı ücretsiz aç (ve poster ise boş yer varsa as) */
+  giveDecor(id) {
+    const d = this.state.decor;
+    if (d.owned[id]) return false;
+    d.owned[id] = true;
+    if (decorById(id)?.kind === 'poster' && d.posters.length < MAX_POSTERS) d.posters.push(id);
+    this.save();
+    this.renderShop();
+    this.onUpgrade?.('decor', 1);
+    return true;
+  }
+
+  decorClick(btn) {
+    const d = this.state.decor;
+    const set = btn.dataset;
+    if (set.dbuy) {
+      const it = decorById(set.dbuy);
+      if (!it?.cost || d.owned[it.id]) return;
+      if (this.state.money < it.cost) return this.audio.error();
+      this.state.money -= it.cost;
+      d.owned[it.id] = true;
+      if (it.kind === 'poster' && d.posters.length < MAX_POSTERS) d.posters.push(it.id);
+      this.audio.upgrade();
+      this.hud.setMoney(this.state.money, false);
+    } else if (set.dhang) {
+      const i = d.posters.indexOf(set.dhang);
+      if (i >= 0) d.posters.splice(i, 1);
+      else if (d.owned[set.dhang] && d.posters.length < MAX_POSTERS) d.posters.push(set.dhang);
+      this.audio.click();
+    } else if (set.radio) {
+      d.radio = set.radio;
+      this.audio.click();
+    } else if ('signSave' in set || set.sign) {
+      const input = document.getElementById('sign-input');
+      if (set.sign && input) input.value = set.sign;
+      d.sign = (input?.value || '').replace(/[<>"]/g, '').slice(0, SIGN_MAX).toLocaleUpperCase('tr-TR').trim();
+      this.audio.click();
+    } else return;
+    this.save();
+    this.renderShop();
+    this.onUpgrade?.('decor', 1);
+  }
+
   renderShop() {
     this.shopMoneyEl.textContent = this.state.money.toLocaleString('tr-TR');
+    document.querySelectorAll('.shop-tab').forEach((b) => b.classList.toggle('on', b.dataset.tab === this.shopTab));
+    if (this.shopTab === 'decor') {
+      this.itemsEl.innerHTML = renderDecorShop(this.state);
+      return;
+    }
     const open = new Set(this.packages.map((p) => p.id));
     const pkgs = Object.values(PACKAGES).map((p) =>
       `<span class="pkg-chip ${open.has(p.id) ? 'on' : ''}" style="--c:${p.color}">${open.has(p.id) ? '✓' : '🔒'} ${p.name} <b>×${p.mult}</b></span>`).join('');

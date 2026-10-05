@@ -3,6 +3,12 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v1.0.0
+- Dükkân kişiselleştirme (mağazada yeni Dekor sekmesi): özel tabela yazısı (üç garaj seviyesinde de görünür, uzun yazı sığacak şekilde küçülür), duvar posterleri (en fazla 3 asılı), saksı bitkisi ve palmiye
+- Radyo istasyonları: Klasik Lo-fi, Pazar Sabahı (majör), Gece Yarısı (minör)
+- Hasan Amca, Zehra Öğretmen ve Selim Bey son ziyarette poster hediye eder
+- Tabela yazısı yazılırken oyun kısayolları devre dışı kalır
+
 ## v0.11.0
 - Garaj albümü: ≥4★ teslimlerin önce/sonra fotoğrafları albüme kaydedilir (en fazla 18, ayrı `localStorage` anahtarı)
 - Araç koleksiyonu (yıkanan modeller açılır, diğerleri ???) ve müdavim kartları

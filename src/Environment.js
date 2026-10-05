@@ -192,6 +192,9 @@ function textTexture(text, { font = 'bold 120px Rubik, sans-serif', color = '#ff
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.font = font;
+    // Uzun (özel) yazılar tabelaya sığacak şekilde küçülür
+    const wide = g.measureText(text).width;
+    if (wide > w * 0.9) g.font = font.replace(/(\d+)px/, (_, n) => `${Math.floor(n * w * 0.9 / wide)}px`);
     if (glow) { g.shadowColor = glow; g.shadowBlur = 30; }
     g.fillStyle = color;
     g.fillText(text, w / 2, sub ? h * 0.42 : h / 2);
@@ -242,6 +245,7 @@ export class Environment {
     this.level = -1;
     this.levels = [];
     this.animated = [];
+    this.signs = [];
     RectAreaLightUniformsLib.init();
 
     this.buildOutside();
@@ -264,6 +268,16 @@ export class Environment {
     spot.shadow.radius = 6;
     scene.add(spot, spot.target);
     this.spot = spot;
+  }
+
+  /** Tabela yazısını değiştir (boş: her seviyenin kendi varsayılanı) */
+  setSignText(text) {
+    for (const sg of this.signs) {
+      const mat = sg.mesh.material;
+      mat.map?.dispose();
+      mat.map = sg.make((text || '').trim() ? text.trim() : sg.text);
+      mat.needsUpdate = true;
+    }
   }
 
   get fx() {
@@ -482,6 +496,7 @@ export class Environment {
       new THREE.PlaneGeometry(4, 1),
       new THREE.MeshStandardMaterial({ map: textTexture('PARILTI OTO YIKAMA', { font: 'bold 96px Rubik, sans-serif', color: '#1c2a3a', bg: '#e8e2d0' }), roughness: 0.8 }),
     );
+    this.signs.push({ mesh: sign, text: 'PARILTI OTO YIKAMA', make: (t) => textTexture(t, { font: 'bold 96px Rubik, sans-serif', color: '#1c2a3a', bg: '#e8e2d0' }) });
     sign.position.set(-ROOM.halfX + 0.03, 3.2, 2.5);
     sign.rotation.y = Math.PI / 2;
     g.add(sign);
@@ -559,6 +574,7 @@ export class Environment {
       new THREE.PlaneGeometry(4.4, 1.1),
       new THREE.MeshStandardMaterial({ map: textTexture('PARILTI', { font: '800 150px Rubik, sans-serif', color: '#1f6fe0', sub: 'OTO YIKAMA & BAKIM', w: 1024, h: 256 }), transparent: true, roughness: 0.6 }),
     );
+    this.signs.push({ mesh: logo, text: 'PARILTI', make: (t) => textTexture(t, { font: '800 150px Rubik, sans-serif', color: '#1f6fe0', sub: 'OTO YIKAMA & BAKIM', w: 1024, h: 256 }) });
     logo.position.set(-ROOM.halfX + 0.03, 3.4, 2.2);
     logo.rotation.y = Math.PI / 2;
     g.add(logo);
@@ -637,6 +653,7 @@ export class Environment {
     // Neon tabela (sol duvar)
     const signTex = textTexture('PARILTI', { font: '800 170px Rubik, sans-serif', color: '#ffe6fb', glow: '#ff4fd8', sub: 'DETAILING STUDIO', w: 1024, h: 320 });
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.56), new THREE.MeshBasicMaterial({ map: signTex, transparent: true, color: new THREE.Color(1.5, 1.5, 1.5) }));
+    this.signs.push({ mesh: sign, text: 'PARILTI', make: (t) => textTexture(t, { font: '800 170px Rubik, sans-serif', color: '#ffe6fb', glow: '#ff4fd8', sub: 'DETAILING STUDIO', w: 1024, h: 320 }) });
     sign.position.set(-ROOM.halfX + 0.05, 3.1, 1.8);
     sign.rotation.y = Math.PI / 2;
     g.add(sign);

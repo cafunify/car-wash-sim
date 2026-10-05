@@ -6,7 +6,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-import { Environment, WALK_BOUNDS } from './Environment.js';
+import { Environment, WALK_BOUNDS, ROOM } from './Environment.js';
 import { REGIONS } from './DirtVolume.js';
 import { WEATHERS } from './Weather.js';
 import { classifyGpu, gpuName, levelFromMs, benchmarkMs, deviceInfo, LEVEL_NAMES, LEVELS } from './Perf.js';
@@ -14,6 +14,7 @@ import { CarManager } from './CarManager.js';
 import { CAR_CATALOG } from './CarModels.js';
 import { Effects } from './Particles.js';
 import { Tools, TOOL_DEFS, toolIndex } from './Tools.js';
+import { DecorView, decorById } from './Decor.js';
 import { Album } from './Album.js';
 import { pickRegular, recordVisit, lineFor } from './Regulars.js';
 import { EconomyManager, SHOP_LEVEL_NAMES, CARS_PER_DAY } from './EconomyManager.js';
@@ -161,6 +162,8 @@ class Game {
 
     this.bindInput();
     this.bindSettings();
+    this.decor = new DecorView(scene, ROOM.halfX);
+    this.applyDecor();
     this.album = new Album({ economy: this.economy, audio: this.audio });
     this.tutorial = new Tutorial({ game: this });
     load.done();
@@ -250,13 +253,22 @@ class Game {
     }
   }
 
+  /** Dekor: tabela yazısı, posterler, bitkiler, radyo */
+  applyDecor() {
+    const d = this.economy.state.decor;
+    this.env.setSignText(d.sign);
+    this.decor.apply(d);
+    this.audio.setStation(d.radio);
+  }
+
   /** Müdavim teslimi: hikâye ilerler, ≥3★ ile teşekkür yorumu, son ziyarette hediye */
   onRegularDelivered(car, res) {
     const r = recordVisit(this.economy.state, car.regular);
     if (res.stars >= 3) res.comment = r.thanks;
     if (r.gift) {
       this.economy.addMoney(r.gift);
-      this.hud.toast(`🏘 ${car.customer} hikâyesi tamam`, `Küçük bir teşekkür: +$${r.gift}`);
+      const gift = r.decor && this.economy.giveDecor(r.decor) ? ` · ${decorById(r.decor).name} dükkânına eklendi` : '';
+      this.hud.toast(`🏘 ${car.customer} hikâyesi tamam`, `Küçük bir teşekkür: +$${r.gift}${gift}`);
     }
     this.economy.save();
   }
@@ -523,6 +535,7 @@ class Game {
   }
 
   onUpgrade(id, level) {
+    if (id === 'decor' || id === 'reset') this.applyDecor?.();
     if (id === 'shop' || id === 'reset') this.applyLevel(this.economy.shopLevel);
     if (id === 'reset') this.progress.ensureGoal();
     else this.progress?.check();
@@ -619,6 +632,7 @@ class Game {
     });
 
     window.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLInputElement) return; // tabela yazısı yazılırken oyun tuşları çalışmasın
       if (e.code === 'Tab') e.preventDefault();
       if (e.repeat) return;
 
