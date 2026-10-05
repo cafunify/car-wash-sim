@@ -3,6 +3,10 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v1.2.0
+- Duvar saati (mağazada $60): sağ duvarda gerçek yerel saati gösterir
+- Anı rafı: her müdavim son ziyarette küçük bir eşya bırakır (oyuncak Milano, elma ve kitaplar, anahtar, domates sepeti, kep, kupa, reçel); raf sol duvarda çay köşesinin yanında
+
 ## v1.1.0
 - Yeni dekorlar: dükkân kedisi (nefes alır, E ile sevilir), buharı tüten çay köşesi, hafif titreyen ışık dizisi, neon "AÇIK" tabelası (pembe/camgöbeği/kehribar), albüm duvarı (en iyi 3 fotoğraf)
 - Bitkiler daha dolgun ve yapraklı yeniden çizildi (saksı bitkisi, sarkan yapraklı palmiye)

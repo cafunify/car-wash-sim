@@ -22,6 +22,14 @@ export const DECOR = [
   { id: 'lights', kind: 'prop', icon: '💡', name: 'Işık Dizisi', cost: 70, desc: 'Duvar boyunca sıcak, hafif titreyen ampuller.' },
   { id: 'neon', kind: 'neon', icon: '🪩', name: 'Neon "AÇIK" Tabelası', cost: 90, desc: 'Sağ duvarda yanan tabela; rengini seçebilirsin.' },
   { id: 'albumwall', kind: 'prop', icon: '📸', name: 'Albüm Duvarı', cost: 90, desc: 'Albümdeki en iyi 3 işin fotoğrafı çerçeveli asılır.' },
+  { id: 'clock', kind: 'prop', icon: '🕰', name: 'Duvar Saati', cost: 60, desc: 'Sağ duvarda, gerçek saati gösterir.' },
+  { id: 'm_hasan', kind: 'memory', icon: '🚗', name: 'Oyuncak Milano', gift: 'Hasan Amca', desc: 'Anı rafı: 1995 model Milano’nun minyatürü.' },
+  { id: 'm_zehra', kind: 'memory', icon: '🍎', name: 'Kitaplar ve Elma', gift: 'Zehra Öğretmen', desc: 'Anı rafı: öğretmenin klasik hediyesi.' },
+  { id: 'm_riza', kind: 'memory', icon: '🔧', name: 'Rıza Usta’nın Anahtarı', gift: 'Rıza Usta', desc: 'Anı rafı: eski bir lokma anahtarı.' },
+  { id: 'm_nuri', kind: 'memory', icon: '🍅', name: 'Domates Sepeti', gift: 'Nuri Dede', desc: 'Anı rafı: pazardan taze domatesler.' },
+  { id: 'm_defne', kind: 'memory', icon: '🎓', name: 'Mezuniyet Şapkası', gift: 'Defne', desc: 'Anı rafı: püsküllü bir kep.' },
+  { id: 'm_selim', kind: 'memory', icon: '🏆', name: 'Yarış Kupası', gift: 'Selim Bey', desc: 'Anı rafı: parlatılmış altın kupa.' },
+  { id: 'm_yusuf', kind: 'memory', icon: '🫙', name: 'Memleket Reçeli', gift: 'Kamyoncu Yusuf', desc: 'Anı rafı: annesinin yaptığı reçel.' },
   { id: 'radio_sunday', kind: 'radio', icon: '☀️', name: 'Pazar Sabahı Radyosu', cost: 100, desc: 'Daha aydınlık, majör akorlu lo-fi.' },
   { id: 'radio_night', kind: 'radio', icon: '🌙', name: 'Gece Yarısı Radyosu', cost: 100, desc: 'Daha loş, minör akorlu lo-fi.' },
 ];
@@ -257,6 +265,84 @@ function buildLights(halfX) {
   return g;
 }
 
+/** Duvar saati: kadran dokusu + akrep/yelkovan/saniye ibresi (yerel saati gösterir) */
+function buildClock() {
+  const g = new THREE.Group();
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#f4efe2'; x.beginPath(); x.arc(128, 128, 126, 0, 7); x.fill();
+  x.fillStyle = '#23262d'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = '700 30px Rubik, sans-serif';
+  for (let i = 1; i <= 12; i++) { const a = (i / 12) * Math.PI * 2 - Math.PI / 2; x.fillText(String(i), 128 + Math.cos(a) * 98, 128 + Math.sin(a) * 98); }
+  for (let i = 0; i < 60; i++) { const a = (i / 60) * Math.PI * 2; x.fillRect(128 + Math.cos(a) * 120 - 1, 128 + Math.sin(a) * 120 - 1, i % 5 ? 2 : 3, i % 5 ? 2 : 3); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  _add(g, new THREE.Mesh(new THREE.CircleGeometry(0.34, 40), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 })), 0, 0, 0.012);
+  _add(g, new THREE.Mesh(new THREE.TorusGeometry(0.345, 0.025, 10, 40), _mat(0x23262d)), 0, 0, 0.012);
+  const hand = (len, w, color) => {
+    const pv = new THREE.Group();
+    pv.position.z = 0.02;
+    _add(pv, new THREE.Mesh(new THREE.BoxGeometry(w, len, 0.006), _mat(color)), 0, len / 2 - 0.03);
+    g.add(pv);
+    return pv;
+  };
+  g.userData = { hour: hand(0.17, 0.022, 0x23262d), min: hand(0.26, 0.016, 0x23262d), sec: hand(0.28, 0.006, 0xc0392b) };
+  return g;
+}
+
+// Anı rafındaki küçük eşyalar (her müdavimin hediyesi)
+const MEMORY_BUILDERS = {
+  m_hasan() { // oyuncak araba
+    const g = new THREE.Group(); const blue = _mat(0x3b6fb5);
+    _add(g, new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.035, 0.06), blue), 0, 0.035);
+    _add(g, new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, 0.055), blue), -0.01, 0.065);
+    for (const [x, z] of [[-0.05, 0.03], [0.05, 0.03], [-0.05, -0.03], [0.05, -0.03]]) _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.012, 10), _mat(0x15151a)), x, 0.016, z).rotation.x = Math.PI / 2;
+    return g;
+  },
+  m_zehra() { // kitaplar ve elma
+    const g = new THREE.Group();
+    _add(g, new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.1), _mat(0x2f6fb3)), 0, 0.015);
+    _add(g, new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.03, 0.095), _mat(0xc0553b)), 0.005, 0.045);
+    _add(g, new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 10), _mat(0xd3302f)), 0, 0.09);
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.02, 4), _trunkMat), 0, 0.13);
+    return g;
+  },
+  m_riza() { // lokma anahtarı
+    const g = new THREE.Group(); const st = _mat(0xaab0ba, { metalness: 0.85, roughness: 0.35 });
+    _add(g, new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.018, 0.03), st), 0, 0.012);
+    _add(g, new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.012, 8, 12), st), 0.09, 0.012).rotation.x = Math.PI / 2;
+    return g;
+  },
+  m_nuri() { // domates sepeti
+    const g = new THREE.Group();
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.055, 0.06, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0xb98a4e, roughness: 0.9, side: THREE.DoubleSide })), 0, 0.03);
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.01, 12), _mat(0x8a6232)), 0, 0.005);
+    for (const [x, z] of [[-0.03, 0], [0.03, 0.01], [0, -0.03]]) _add(g, new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), _mat(0xd8372b)), x, 0.07, z);
+    return g;
+  },
+  m_defne() { // mezuniyet şapkası
+    const g = new THREE.Group(); const k = _mat(0x17181c);
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.04, 14), k), 0, 0.02);
+    _add(g, new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.01, 0.15), k), 0, 0.048).rotation.y = Math.PI / 4;
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.07, 4), _mat(0xe6b422)), 0.06, 0.03, 0.06);
+    return g;
+  },
+  m_selim() { // kupa
+    const g = new THREE.Group(); const gold = _mat(0xe6b422, { metalness: 0.85, roughness: 0.25 });
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.015, 12), _mat(0x2a2a2f)), 0, 0.008);
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.05, 8), gold), 0, 0.04);
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.02, 0.07, 14), gold), 0, 0.1);
+    for (const sx of [-1, 1]) _add(g, new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.005, 6, 10), gold), sx * 0.05, 0.1);
+    return g;
+  },
+  m_yusuf() { // reçel kavanozu
+    const g = new THREE.Group();
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.09, 14), _mat(0xa5192e, { transparent: true, opacity: 0.9 })), 0, 0.045);
+    _add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.02, 14), _mat(0xe7d6a1)), 0, 0.1);
+    return g;
+  },
+};
+
 function neonTexture(color) {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 256;
@@ -317,6 +403,26 @@ export class DecorView {
       this.wallPhotos.push(pic);
     }
     this.group.add(this.wall);
+    this.clock = buildClock();
+    this.clock.position.set(halfX - 0.05, 3.25, 1.2);
+    this.clock.rotation.y = -Math.PI / 2;
+    this.group.add(this.clock);
+
+    // Anı rafı: sol duvarda, çay köşesinin yanında
+    this.shelf = new THREE.Group();
+    this.shelf.position.set(-halfX + 0.08, 1.45, 1.0);
+    _add(this.shelf, new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 1.5), _mat(0x7a5436)));
+    for (const z of [-0.6, 0.6]) _add(this.shelf, new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.03), _mat(0x23262d)), 0, -0.07, z);
+    this.memories = {};
+    Object.keys(MEMORY_BUILDERS).forEach((id, i) => {
+      const m = MEMORY_BUILDERS[id]();
+      m.position.set(0, 0.02, -0.64 + i * 0.213);
+      m.scale.setScalar(1.35);
+      m.rotation.y = Math.PI / 2;
+      this.shelf.add(m);
+      this.memories[id] = m;
+    });
+    this.group.add(this.shelf);
     this.loader = new THREE.TextureLoader();
     this.t = 0;
   }
@@ -353,6 +459,10 @@ export class DecorView {
     this.lights.visible = !!o.lights;
     this.wall.visible = !!o.albumwall;
     this.neon.visible = !!o.neon;
+    this.clock.visible = !!o.clock;
+    let anyMemory = false;
+    for (const id of Object.keys(this.memories)) { this.memories[id].visible = !!o[id]; anyMemory ||= !!o[id]; }
+    this.shelf.visible = anyMemory;
     if (o.neon) {
       const col = NEON_COLORS[decor.neon] || NEON_COLORS.pink;
       this.neon.material.map?.dispose();
@@ -402,6 +512,15 @@ export class DecorView {
         const f = 0.85 + Math.sin(time * 2.2 + i * 1.7) * 0.15;
         b.material.color.setRGB(1.8 * f, 1.25 * f, 0.6 * f);
       });
+    }
+    if (this.clock.visible && time - (this._clockT || -9) >= 1) {
+      this._clockT = time;
+      const d = new Date();
+      const sec = d.getSeconds(), min = d.getMinutes() + sec / 60, hr = (d.getHours() % 12) + min / 60;
+      const { hour, min: mh, sec: sh } = this.clock.userData;
+      hour.rotation.z = -(hr / 12) * Math.PI * 2;
+      mh.rotation.z = -(min / 60) * Math.PI * 2;
+      sh.rotation.z = -(sec / 60) * Math.PI * 2;
     }
     if (this.neon.visible) {
       const flick = Math.sin(time * 31) > 0.985 ? 0.55 : 1;

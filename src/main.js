@@ -269,7 +269,8 @@ class Game {
     if (res.stars >= 3) res.comment = r.thanks;
     if (r.gift) {
       this.economy.addMoney(r.gift);
-      const gift = r.decor && this.economy.giveDecor(r.decor) ? ` · ${decorById(r.decor).name} dükkânına eklendi` : '';
+      const names = [r.decor, r.memory].filter((id) => id && this.economy.giveDecor(id)).map((id) => decorById(id).name);
+      const gift = names.length ? ` · ${names.join(' ve ')} dükkânına eklendi` : '';
       this.hud.toast(`🏘 ${car.customer} hikâyesi tamam`, `Küçük bir teşekkür: +$${r.gift}${gift}`);
     }
     this.economy.save();
