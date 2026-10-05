@@ -9,6 +9,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Environment, WALK_BOUNDS } from './Environment.js';
 import { REGIONS } from './DirtVolume.js';
 import { WEATHERS } from './Weather.js';
+import { classifyGpu, gpuName, levelFromMs, benchmarkMs, deviceInfo, LEVEL_NAMES, LEVELS } from './Perf.js';
 import { CarManager } from './CarManager.js';
 import { CAR_CATALOG } from './CarModels.js';
 import { Effects } from './Particles.js';
@@ -109,6 +110,7 @@ class Game {
     this.env = new Environment(scene, renderer);
     this.effects = new Effects(scene);
     this.economy = new EconomyManager(this.hud, this.audio, { onUpgrade: (id, lvl) => this.onUpgrade(id, lvl) });
+    this.autoQualityPick(); // sahne kurulmadan önce GPU/CPU sezgisiyle başlangıç seviyesi
     this.cars = new CarManager(scene, {
       renderer,
       camera,
@@ -146,6 +148,8 @@ class Game {
 
     load.step(0.6, 'Garaj ışıkları yerleştiriliyor…');
     this.applyLevel(this.economy.shopLevel);
+    load.step(0.7, 'Cihaz ölçülüyor…');
+    this.probeQuality();
     load.step(0.75, 'Araç modeli indiriliyor…');
     await preloading;
     load.step(0.88, 'Boya ve ışıklar derleniyor…');
@@ -157,6 +161,7 @@ class Game {
     this.bindSettings();
     this.tutorial = new Tutorial({ game: this });
     load.done();
+    this.showAutoNote();
     renderer.setAnimationLoop(() => this.frame());
     this.exposeDebug();
   }
@@ -337,6 +342,46 @@ class Game {
     this.mouseDist += Math.hypot(dx, dy);
   }
 
+  /** İlk açılışta (otomatik mod): GPU adı + CPU/RAM sezgisiyle seviye seç */
+  autoQualityPick() {
+    const st = this.economy.state.settings;
+    if (!st.qualityAuto || st.qualityProbed) return;
+    const gpu = gpuName(this.renderer.getContext());
+    const cls = classifyGpu(gpu, deviceInfo());
+    st.quality = cls.level;
+    st.qualityProbed = { gpu, cap: cls.level, reason: cls.reason, ms: null };
+    this.economy.save();
+  }
+
+  /** Garaj kurulduktan sonra kısa ölçüm: yavaşsa seviye düşer (zaten düşükse atlanır) */
+  probeQuality() {
+    const st = this.economy.state.settings;
+    const pr = st.qualityProbed;
+    if (!st.qualityAuto || !pr || pr.ms != null) return;
+    this.applyQuality(st.quality);
+    if (st.quality === 'low' && pr.cap === 'low') {
+      pr.ms = 0; // en düşük seviyede ölçüm gereksiz
+    } else {
+      const ms = benchmarkMs(() => this.composer.render(), this.renderer.getContext());
+      pr.ms = Math.round(ms * 10) / 10;
+      const lvl = levelFromMs(st.quality, ms);
+      if (lvl !== st.quality) {
+        st.quality = lvl;
+        this.applyQuality(lvl);
+      }
+    }
+    this.economy.save();
+  }
+
+  /** Giriş ekranında otomatik seçimi bildir */
+  showAutoNote() {
+    const st = this.economy.state.settings;
+    const el = document.getElementById('auto-quality-note');
+    if (!el || !st.qualityAuto || !st.qualityProbed) return;
+    el.textContent = `⚙ Cihazına göre ${LEVEL_NAMES[st.quality]} grafik seçildi — Ayarlar'dan değiştirebilirsin`;
+    el.classList.remove('hidden');
+  }
+
   applyQuality(q) {
     const cfg = QUALITY[q] || QUALITY.medium;
     if (this.quality === q) return;
@@ -372,7 +417,7 @@ class Game {
         $(id).value = st[key];
         $(`${id}-v`).textContent = `${st[key]}${unit}`;
       }
-      for (const b of $('set-quality').children) b.classList.toggle('on', b.dataset.q === st.quality);
+      for (const b of $('set-quality').children) b.classList.toggle('on', b.dataset.q === 'auto' ? !!st.qualityAuto : b.dataset.q === st.quality);
       $('set-quality-note').textContent = QUALITY[st.quality].note;
       $('set-fps').checked = st.fps;
       $('set-touch').checked = !!st.touch;
@@ -391,7 +436,17 @@ class Game {
     $('set-quality').addEventListener('click', (e) => {
       const q = e.target.closest('button')?.dataset.q;
       if (!q) return;
-      st.quality = q;
+      if (q === 'auto') {
+        // Yeniden ölç: GPU sezgisi + kısa benchmark
+        st.qualityAuto = true;
+        st.qualityProbed = null;
+        this.autoQualityPick();
+        this.probeQuality();
+        this.showAutoNote();
+      } else {
+        st.quality = q;
+        st.qualityAuto = false; // elle seçim otomatiği kapatır
+      }
       commit();
       this.audio.click();
     });
@@ -420,6 +475,21 @@ class Game {
     this.applySettings();
   }
 
+  /** Otomatik moddayken FPS 6 sn boyunca <24 kalırsa seviyeyi bir kademe düşür */
+  guardFps(fps) {
+    const st = this.economy.state.settings;
+    if (!st.qualityAuto || !this.active || this.time < 15 || document.hidden) { this.lowFpsTime = 0; return; }
+    this.lowFpsTime = fps < 24 ? (this.lowFpsTime || 0) + 0.5 : 0;
+    if (this.lowFpsTime < 6) return;
+    this.lowFpsTime = 0;
+    const i = LEVELS.indexOf(st.quality);
+    if (i <= 0) return;
+    st.quality = LEVELS[i - 1];
+    this.economy.save();
+    this.applyQuality(st.quality);
+    this.hud.toast('⚙ Grafik düşürüldü', `Akıcılık için ${LEVEL_NAMES[st.quality]} seviyesine geçildi`, 'warn');
+  }
+
   updateFps(dt) {
     this.fpsFrames++;
     this.fpsTime += dt;
@@ -427,6 +497,7 @@ class Game {
     const fps = this.fpsFrames / this.fpsTime;
     this.fpsFrames = 0;
     this.fpsTime = 0;
+    this.guardFps(fps);
     if (!this.economy.state.settings.fps) return;
     const info = this.renderer.info.render;
     document.getElementById('fps').textContent =
@@ -930,6 +1001,7 @@ class Game {
         this.economy.save();
         this.onUpgrade('unlock', 1);
       },
+      perf: () => ({ ...this.economy.state.settings.qualityProbed, quality: this.economy.state.settings.quality, auto: this.economy.state.settings.qualityAuto }),
       nextCar: async (pkgId, carId, eventId) => {
         if (carId) await this.cars.loadDef(CAR_CATALOG.find((d) => d.id === carId));
         this.cars.disposeCar();

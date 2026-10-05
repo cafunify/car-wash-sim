@@ -120,6 +120,10 @@ Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `ne
 
 - **Kil Bar** (mağaza): katranlı araçlarda (Detaylı/Premium) "Katran" adımı; temiz ve ıslak yüzeyde etek/kapı altındaki koyu lekeleri ovarak söker.
 
+## Otomatik grafik
+
+İlk açılışta tarayıcının verdiği GPU adı, çekirdek/RAM bilgisi ve kısa bir kare ölçümüyle Düşük/Orta/Yüksek seçilir (`src/Perf.js`). Ayarlar → Grafik → Otomatik ile yeniden ölçülür; elle seçim otomatiği kapatır. Debug: `game.perf()`.
+
 ## Çeşitlilik
 
 - **Hava durumu:** her gün açık / yağmurlu / tuzlu kış; kir türünü ve ücreti değiştirir.

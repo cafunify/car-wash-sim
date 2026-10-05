@@ -45,9 +45,12 @@
     </div>
 
     <!-- Sağ üst: para -->
-    <div id="money-panel" class="panel">
-      <span class="money-icon">$</span>
-      <span id="money">0</span>
+    <div id="top-right">
+      <div id="fps" class="hidden"></div>
+      <div id="money-panel" class="panel">
+        <span class="money-icon">$</span>
+        <span id="money">0</span>
+      </div>
     </div>
     <div id="money-sub">Yıkanan: <b id="washed-count">0</b></div>
     <div id="day-panel" class="panel">
@@ -108,7 +111,6 @@
       <small>Basınca kalan kirli yerler birkaç saniye parlar</small>
     </div>
 
-    <div id="fps" class="hidden"></div>
 
     <!-- Sağ alt: kısayollar -->
     <div id="keys-help">
@@ -135,6 +137,7 @@
         <h1>PARILTI<span>OTO YIKAMA</span></h1>
       </div>
       <p class="tagline">Kirli arabaları pırıl pırıl yap, parayı topla, dükkânını büyüt.</p>
+      <p id="auto-quality-note" class="auto-note hidden"></p>
 
       <!-- Yükleme: araç kirli → parlak döngüsü, gerçek ilerleme ve ipuçları (hazır olunca kapanır) -->
       <div id="loader" class="loader">
@@ -259,6 +262,7 @@
       <div class="set-row">
         <span>🖥 Grafik</span>
         <div class="seg" id="set-quality">
+          <button data-q="auto">Otomatik</button>
           <button data-q="low">Düşük</button>
           <button data-q="medium">Orta</button>
           <button data-q="high">Yüksek</button>
