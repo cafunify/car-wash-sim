@@ -7,6 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 import { Environment, WALK_BOUNDS } from './Environment.js';
+import { REGIONS } from './DirtVolume.js';
 import { CarManager } from './CarManager.js';
 import { CAR_CATALOG } from './CarModels.js';
 import { Effects } from './Particles.js';
@@ -20,6 +21,7 @@ import { LoadScreen, fitStartScreen } from './LoadScreen.js';
 import { TouchControls } from './TouchControls.js';
 import { PACKAGES, STEPS, pickPackage, packageProgress } from './Packages.js';
 
+const _regionBox = new THREE.Box3();
 const EYE_HEIGHT = 1.68;
 const CROUCH_HEIGHT = 1.02;
 const WALK_SPEED = 3.3;
@@ -745,11 +747,46 @@ class Game {
     const { steps, current, total, done } = packageProgress(car.package, s, car.latch);
     this.hud.setProgress(total, steps, current, done);
     this.lastStats = { ...s, steps, current, total };
+    if (!done) this.stepFeedback(car, steps);
+    this.regionFeedback(car, s);
     this.audio.setDrips(Math.min(1, (1 - s.dry) * 1.5));
     // Duraklatma ve mağazadayken kuş pisliği kurumaz (müşteri zamanlayıcısı gibi)
     if (this.active || this.debugPlay) this.updateBirdTimer(car, s, 0.1);
     this.guide(current, s);
     if (done) this.onCarWashed();
+  }
+
+  /** Adım bitince çip parlar ve "ding" çalar (adım başta zaten bitikse tetiklenmez) */
+  stepFeedback(car, steps) {
+    const seen = car.stepSeen || (car.stepSeen = {});
+    for (const id of Object.keys(steps)) {
+      if (steps[id] < 1) seen[id] = 'open';
+      else if (seen[id] === 'open') {
+        seen[id] = 'done';
+        this.hud.pulseStep(id);
+        this.audio.ding(3);
+      }
+    }
+  }
+
+  /** Aracın bir bölgesi (kaput, yan, tampon...) temizlenince küçük parıltı + ding + bildirim */
+  regionFeedback(car, s) {
+    const f = s.regionFrac;
+    if (!f) return;
+    const v = car.volume;
+    const st = car.regionState || (car.regionState = new Array(REGIONS.length).fill(0)); // 0 bekliyor, 1 tamam, 2 baştan temiz
+    if (!car.regionInit) {
+      car.regionInit = true;
+      for (let k = 0; k < REGIONS.length; k++) if (v.regionCount[k] < 25 || f[k] >= 0.8) st[k] = 2;
+    }
+    for (let k = 0; k < REGIONS.length; k++) {
+      if (st[k] !== 0 || f[k] < 0.93) continue;
+      st[k] = 1;
+      car.regionsDone = (car.regionsDone || 0) + 1;
+      this.audio.ding(Math.min(car.regionsDone - 1, 4));
+      this.effects.sparkleBurst(_regionBox.copy(v.regionBox[k]).translate(car.root.position), 30);
+      this.hud.toast(`✓ ${REGIONS[k].label}`, 'pırıl pırıl', 'region');
+    }
   }
 
   /** Kuş pisliği araçta bekledikçe kurur: önce uyarı, süre dolunca teslimde puan cezası */

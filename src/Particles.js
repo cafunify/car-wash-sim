@@ -412,9 +412,9 @@ export class Effects {
   }
 
   /** Temiz araç kutlaması */
-  sparkleBurst(box) {
+  sparkleBurst(box, count = 90) {
     const size = box.getSize(this._t);
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < count; i++) {
       this._p.set(
         box.min.x + Math.random() * size.x,
         box.min.y + Math.random() * size.y,

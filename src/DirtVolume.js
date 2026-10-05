@@ -80,6 +80,19 @@ function make3DTexture(data, nx, ny, nz) {
 }
 
 // ------------------------------------------------------------------ Hacim
+const _rp = new THREE.Vector3();
+
+/** Aracın kaba bölgeleri (parça bazlı "temizlendi" geri bildirimi için; araç yerel koordinatı, +Z ön) */
+export const REGIONS = [
+  { id: 'hood', label: 'Kaput' },
+  { id: 'roof', label: 'Tavan' },
+  { id: 'trunk', label: 'Bagaj' },
+  { id: 'left', label: 'Sol yan' },
+  { id: 'right', label: 'Sağ yan' },
+  { id: 'front', label: 'Ön tampon' },
+  { id: 'back', label: 'Arka tampon' },
+];
+
 export class DirtVolume {
   /**
    * @param {THREE.Box3} bounds aracın yerel (root) uzayındaki sınırları
@@ -482,6 +495,29 @@ export class DirtVolume {
     for (let s = 0; s < n; s++) {
       this.sampleIdx[s] = this.voxelIndexAt(positions[s * 3], positions[s * 3 + 1], positions[s * 3 + 2]) * 4;
     }
+    // Bölge ataması: kaput/tavan/bagaj (yukarı bakan), yanlar, ön ve arka (boya, cam, trim örnekleri)
+    this.sampleRegion = new Int8Array(n).fill(-1);
+    this.regionCount = new Int32Array(REGIONS.length);
+    this.regionFrac = new Float32Array(REGIONS.length).fill(1);
+    this.regionBox = REGIONS.map(() => new THREE.Box3());
+    if (normals) {
+      for (let s = 0; s < n; s++) {
+        const part = parts[s];
+        if (part !== PART.PAINT && part !== PART.GLASS && part !== PART.TRIM) continue;
+        const nx = normals[s * 3] / 127, ny = normals[s * 3 + 1] / 127, nz = normals[s * 3 + 2] / 127;
+        const zn = (positions[s * 3 + 2] - this.min.z) / this.size.z;
+        let r = -1;
+        if (ny > 0.5) r = zn > 0.62 ? 0 : zn > 0.3 ? 1 : 2;
+        else if (nx < -0.6) r = 3;
+        else if (nx > 0.6) r = 4;
+        else if (nz > 0.6) r = 5;
+        else if (nz < -0.6) r = 6;
+        if (r < 0) continue;
+        this.sampleRegion[s] = r;
+        this.regionCount[r]++;
+        this.regionBox[r].expandByPoint(_rp.set(positions[s * 3], positions[s * 3 + 1], positions[s * 3 + 2]));
+      }
+    }
     // Lastik parlatma yalnızca DIŞA bakan yanağı sayar (normaller Int8, ±127): normal aracın yan eksenine
     // yakın ve araç merkezinden uzaklaşan yönde olmalı; iç yanak ve taban sayılmaz
     this.tireSide = null;
@@ -507,6 +543,10 @@ export class DirtVolume {
     const { data, detail, sampleParts } = this;
     let mud = 0, stain = 0, dry = 0, foam = 0, cover = 0, body = 0;
     const cnt = [0, 0, 0, 0], ok = [0, 0, 0, 0]; // jant, lastik, cam, boya(cila)
+    const rc = this._rc || (this._rc = new Int32Array(REGIONS.length)), rk = this._rk || (this._rk = new Int32Array(REGIONS.length));
+    rc.fill(0);
+    rk.fill(0);
+    const region = this.sampleRegion;
     for (let s = 0; s < idx.length; s++) {
       const i = idx[s];
       if (data[i] < CLEAN_THRESHOLD) mud++;
@@ -514,6 +554,8 @@ export class DirtVolume {
       if (data[i + 2] < CLEAN_THRESHOLD * 1.6) dry++;
       if (data[i + 3] > CLEAN_THRESHOLD) foam++;
       const part = sampleParts[s];
+      const rg = region ? region[s] : -1;
+      if (rg >= 0) { rc[rg]++; if (data[i] < CLEAN_THRESHOLD && data[i + 1] < CLEAN_THRESHOLD) rk[rg]++; }
       // Köpük kaplaması: kaporta ve camlar (lastik/jant hariç)
       if (part === PART.PAINT || part === PART.GLASS || part === PART.TRIM) {
         body++;
@@ -539,6 +581,10 @@ export class DirtVolume {
     out.tires = cnt[1] ? ok[1] / cnt[1] : 1;
     out.glass = cnt[2] ? ok[2] / cnt[2] : 1;
     out.polish = cnt[3] ? ok[3] / cnt[3] : 1;
+    if (region) {
+      for (let k = 0; k < REGIONS.length; k++) this.regionFrac[k] = rc[k] ? rk[k] / rc[k] : 1;
+      out.regionFrac = this.regionFrac;
+    }
     return out;
   }
 
