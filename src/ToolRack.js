@@ -9,6 +9,7 @@ const SLOTS = {
   towel: { x: -1.0, y: 0.935, rot: [0, -0.2, 0], scale: 1.4 },
   rim: { x: 0.0, y: 0.935, rot: [0, 0.5, 0], scale: 1.4 },
   tire: { x: 0.95, y: 0.935, rot: [0, 0, 0], scale: 1.6 },
+  clay: { x: 0.48, y: 0.935, rot: [0, 0.3, 0], scale: 1.5 },
 };
 
 const INTERACT_DIST = 3.2;

@@ -178,7 +178,7 @@ class Game {
   spawnCar() {
     this.lastStats = null;
     const pkg = pickPackage(this.economy.owns, this.economy.state.rep);
-    const car = this.cars.spawn(this.economy.shopLevel, pkg);
+    const car = this.cars.spawn(this.economy.shopLevel, pkg, undefined, { tar: this.economy.level('claybar') > 0 });
     this.applyCosmetics();
     // Araca özel paket: kuş pisliği / böcek yoksa "Kuş/Böcek" adımı yok
     this.hud.setPackage(car.package);
@@ -218,7 +218,7 @@ class Game {
     // "Sonra" fotoğrafı bu karenin sonunda çekilir, teslim kartı onunla açılır
     if (res) {
       this.pendingShot = { kind: 'after', car, res };
-      this.progress.onDelivery({ stars: res.stars, tip: res.tip, complete: res.complete, hadSpots: !!car?.package.steps.includes('spots') });
+      this.progress.onDelivery({ stars: res.stars, tip: res.tip, complete: res.complete, hadSpots: !!car?.package.steps.includes('spots'), hadTar: !!car?.package.steps.includes('tar') });
       this.tutorial?.onDelivered();
     }
     this.rack.setHighlight(null);
@@ -837,6 +837,7 @@ class Game {
     let extra = '';
     if (current === 'rinse' && s.foam < 0.02 && s.stain < STEPS.rinse.threshold) extra = ' · lekeler kaldı: tekrar köpükle';
     if (current === 'dry' && s.foam >= 0.02) extra = ' · önce köpüğü durula';
+    if (current === 'tar') extra = ' · temiz, ıslak yüzeyde kille ov (etek ve kapı altı)';
     if (current === 'spots' && s.birdHard > 0.05) extra = ' · kuş pisliği sert: köpükle kapla, biraz beklet';
     if ((current === 'tires' || current === 'rims') && !this.crouching) extra = ' · <kbd>C</kbd> çömel (aç/kapa)';
     this.hud.setStepHint(`${step.long}: ${how}${extra}`);
@@ -921,7 +922,7 @@ class Game {
       tool: (i) => this.tools.pickUp(i),
       interact: () => this.interact(),
       unlockAll: () => {
-        for (const k of ['rimcleaner', 'tireshine', 'glasscleaner', 'polisher', 'pinkfoam']) this.economy.state.levels[k] = 1;
+        for (const k of ['rimcleaner', 'tireshine', 'glasscleaner', 'polisher', 'claybar', 'pinkfoam']) this.economy.state.levels[k] = 1;
         this.economy.save();
         this.onUpgrade('unlock', 1);
       },
@@ -929,7 +930,7 @@ class Game {
         if (carId) await this.cars.loadDef(CAR_CATALOG.find((d) => d.id === carId));
         this.cars.disposeCar();
         const pkg = PACKAGES[pkgId] || pickPackage(this.economy.owns);
-        const car = this.cars.spawn(this.economy.shopLevel, pkg, carId);
+        const car = this.cars.spawn(this.economy.shopLevel, pkg, carId, { tar: this.economy.level('claybar') > 0 });
         this.applyCosmetics();
         this.hud.setPackage(car.package);
         this.hints = new Set();

@@ -101,7 +101,7 @@ export class CarManager {
     return this.pickFrom(fresh.length ? fresh : pool);
   }
 
-  spawn(maxTier = 0, pkg = PACKAGES.standart, forceId) {
+  spawn(maxTier = 0, pkg = PACKAGES.standart, forceId, { tar = false } = {}) {
     const def = this.pickDef(maxTier, forceId);
     this.lastId = def.id;
     this.recent.push(def.id);
@@ -134,7 +134,9 @@ export class CarManager {
       bird: Math.random() < BIRD_CHANCE ? 1 + ((Math.random() * 4) | 0) : 0,
       bugs: Math.random() < BUG_CHANCE ? 25 + ((Math.random() * 35) | 0) : 0,
     });
-    pkg = packageFor(pkg, volume.spotCenters.length > 0);
+    // Katran yalnızca kil barı olan oyuncuya ve cam adımlı (Detaylı/Premium) paketlerde gelir
+    const hasTar = tar && pkg.steps.includes('glass') && scatterTar(volume, 6 + ((Math.random() * 9) | 0)) > 0;
+    pkg = packageFor(pkg, volume.spotCenters.length > 0, hasTar);
     const req = (id) => (pkg.steps.includes(id) ? 1 : 0);
     volume.uniforms.uReq.value.set(req('rims'), req('tires'), req('glass'), req('polish'));
 
@@ -454,6 +456,26 @@ function scatterSpots(volume, { bird = 0, bugs = 0 }) {
   for (let k = 0; k < bugs && bugAt.length; k++, added++) {
     _sp.fromArray(pos, bugAt[(Math.random() * bugAt.length) | 0] * 3);
     volume.addSpot(_sp, 0.03 + Math.random() * 0.035, 1, 0.6 + Math.random() * 0.4);
+  }
+  return added;
+}
+
+/** Katran/reçine: alt gövdede (etek, kapı altı) yana bakan boya yüzeylerine küçük koyu lekeler. Dönüş: eklenen leke sayısı */
+function scatterTar(volume, count) {
+  const pos = volume.samplePos, nrm = volume.sampleNormals, parts = volume.sampleParts;
+  if (!pos || !nrm) return 0;
+  const { min, size } = volume;
+  const at = [];
+  for (let s = 0; s < parts.length; s++) {
+    if (parts[s] !== PART.PAINT) continue;
+    const nx = nrm[s * 3] / 127;
+    const h = (pos[s * 3 + 1] - min.y) / size.y;
+    if (Math.abs(nx) > 0.6 && h < 0.4) at.push(s);
+  }
+  let added = 0;
+  for (let k = 0; k < count && at.length; k++, added++) {
+    _sp.fromArray(pos, at[(Math.random() * at.length) | 0] * 3);
+    volume.addSpot(_sp, 0.025 + Math.random() * 0.03, 2, 0.7 + Math.random() * 0.3);
   }
   return added;
 }

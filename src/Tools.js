@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { ClothTowel } from './Towel.js';
-import { TOWEL_ICON } from './Icons.js';
+import { TOWEL_ICON, CLAY_ICON } from './Icons.js';
 
 /**
  * Aletler. `unlock` mağazadaki ekipman anahtarıdır (null = başlangıçta var).
@@ -16,6 +16,7 @@ export const TOOL_DEFS = [
   { id: 'tire', name: 'Lastik Parlatıcı', short: 'Lastik', icon: '⚫', range: 2.4, unlock: 'tireshine', kind: 'hand' },
   { id: 'glass', name: 'Cam Temizleyici', short: 'Cam', icon: '🪟', range: 2.4, unlock: 'glasscleaner', kind: 'spray' },
   { id: 'polish', name: 'Cila Makinesi', short: 'Cila', icon: '✨', range: 2.4, unlock: 'polisher', kind: 'hand' },
+  { id: 'clay', name: 'Kil Bar', short: 'Kil bar', icon: CLAY_ICON, range: 2.4, unlock: 'claybar', kind: 'hand' },
 ];
 
 const CENTER = new THREE.Vector2(0, 0);
@@ -176,7 +177,7 @@ export class Tools {
           // Kuş pisliği: köpükle yumuşamış kısmı hızla gider, kuru kabuk çok yavaş · böcek: köpükle hızlanır
           const res = this.carManager.paint(hit.point, radius, {
             mud: 1.2 * power * near, stain: 0.06 * power, foamBoost: 25 * this.economy.shampoo, wet: 1.3, foam: -3.0 * power, flow: 1,
-            bird: 1.6 * power * near, bugs: 0.1 * power,
+            bird: 1.6 * power * near, bugs: 0.1 * power, tar: 0.04 * power,
           }, dt);
           if (res && res.foam > 0.2) bubbleRate = 0.35;
         }
@@ -228,6 +229,14 @@ export class Tools {
         this.scrubPhase += dt * (4 + scrub * 14);
         loops.pad = 0.3 + 0.7 * scrub;
         if (res && res.mud > 0.4) this.hintOnce('tire-mud', 'Lastik çamurlu — önce su ile yıka');
+        break;
+      }
+      case 'clay': {
+        if (!touching) break;
+        const res = this.carManager.paint(hit.point, 0.12, { tar: 1.6 * f, wet: 0.1 }, dt);
+        this.scrubPhase += dt * (5 + scrub * 14);
+        loops.pad = 0.3 + 0.7 * scrub;
+        if (res && res.mud > 0.4) this.hintOnce('clay-mud', 'Kil bar temiz yüzeyde çalışır — önce suyla yıka');
         break;
       }
       case 'glass': {
@@ -423,6 +432,15 @@ export function buildToolModel(id) {
       loop.position.y = 0.047;
       const tip = new THREE.Object3D();
       g.add(pad, base, loop, tip);
+      return finish(g, ...HAND_REST, { tip, thickness: 0.002 });
+    }
+    case 'clay': {
+      // Kil bar: mavi kalıp
+      const g = new THREE.Group();
+      const block = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.035, 0.07), M.plastic(0x2f8fff, 0.55));
+      block.position.y = 0.0175;
+      const tip = new THREE.Object3D();
+      g.add(block, tip);
       return finish(g, ...HAND_REST, { tip, thickness: 0.002 });
     }
     case 'glass': {

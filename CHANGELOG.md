@@ -3,6 +3,11 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.9.0
+- Kil Bar: yeni alet (mağazada $180) ve katran/reçine lekesi. Etek ve kapı altlarındaki koyu leke kil barla ovularak sökülür
+- Katranlı araçlar yalnızca kil barı olan oyuncuya ve Detaylı/Premium paketlerde gelir; yeni "Katran" adımı durulamadan sonra
+- "Katran avcısı" başarımı
+
 ## v0.8.0
 - İlk açılış rehberi: 5 adımlık kontrol listesi (yürü, çamuru sök, köpükle, durula, teslim); Atla düğmesi, Ayarlar'dan yeniden oynat. Eski kayıtlar rehberi görmez
 - Günlük hedef: her gün bir hedef (ör. 3 bahşiş, 2 kusursuz iş), tamamlanınca para ödülü; gün panelinde görünür

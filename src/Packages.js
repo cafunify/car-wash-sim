@@ -19,6 +19,8 @@ export const STEPS = {
   dry: { label: 'Kurulama', long: 'Havluyla su lekelerini kurula', tool: 'towel', color: '#6fc3ff', threshold: 0.95 },
   rims: { label: 'Jant', long: 'Jantlardaki fren tozunu temizle', tool: 'rim', color: '#a9b3c1', threshold: 0.94 },
   tires: { label: 'Lastik', long: 'Lastikleri parlat', tool: 'tire', color: '#7b8391', threshold: 0.94 },
+  // Katran/reçine: kil bar gerekir; yalnızca katranlı Detaylı/Premium araçlarda pakete girer (bkz. packageFor)
+  tar: { label: 'Katran', long: 'Etek ve kapılardaki katran lekelerini kil barla ov', tool: 'clay', color: '#9aa8ff', threshold: 0.95 },
   polish: { label: 'Cila', long: 'Boyayı cilala', tool: 'polish', color: '#ffd35a', threshold: 0.9 },
 };
 
@@ -61,8 +63,11 @@ export function availablePackages(owns) {
  * Araca özel paket kopyası: araçta kuş pisliği / böcek lekesi yoksa "Kuş/Böcek" adımı çıkarılır
  * (paket kimliği, adı ve çarpanı aynı kalır).
  */
-export function packageFor(pkg, hasSpots) {
-  return hasSpots ? { ...pkg, steps: [...pkg.steps] } : { ...pkg, steps: pkg.steps.filter((id) => id !== 'spots') };
+export function packageFor(pkg, hasSpots, hasTar = false) {
+  const steps = pkg.steps.filter((id) => id !== 'tar' && (id !== 'spots' || hasSpots));
+  // Katran adımı yalnızca cam adımı olan (Detaylı/Premium) paketlerde, durulamadan sonra
+  if (hasTar && steps.includes('glass')) steps.splice(steps.indexOf('rinse') + 1, 0, 'tar');
+  return { ...pkg, steps };
 }
 
 /** Müşterinin isteyeceği paketi seç (açık olanlardan; rep: 1–5 yıldız itibar) */
@@ -93,6 +98,7 @@ export function packageProgress(pkg, stats, latch) {
     rinse: latch.foam || stats.stain >= STEPS.rinse.threshold ? Math.min(stats.stain, 1 - stats.foam * 20) : 0,
     // Kuş/Böcek: kayıtlı leke voxellerinin temiz oranı
     spots: stats.spots ?? 1,
+    tar: stats.tar ?? 1,
     glass: stats.glass,
     dry: stats.dry,
     rims: stats.rims,
