@@ -3,6 +3,11 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.11.0
+- Garaj albümü: ≥4★ teslimlerin önce/sonra fotoğrafları albüme kaydedilir (en fazla 18, ayrı `localStorage` anahtarı)
+- Araç koleksiyonu (yıkanan modeller açılır, diğerleri ???) ve müdavim kartları
+- 📷 Albüm düğmesi başlangıç ekranında ve mağazada; telefon genişliğinde tek sütun
+
 ## v0.10.0
 - Müdavimler: 7 isimli müşteri favori araçlarıyla ara sıra gelir, her ziyarette küçük bir hikâye anlatır (3 ziyaret), son ziyarette hediye bırakır
 - Cezasız tasarım: hikâye yıldızdan bağımsız ilerler; ≥3★ teslimde müdavimin teşekkür yorumu görünür

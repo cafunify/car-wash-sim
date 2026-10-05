@@ -79,7 +79,7 @@ export class LoadScreen {
     setTimeout(fitStartScreen, 900); // yükleme göstergesi kapandıktan sonra yeniden ölç
     this.startBtn.disabled = false;
     this.startBtn.textContent = 'Tıkla ve Başla';
-    screen.querySelectorAll('.open-settings, .open-ach').forEach((b) => (b.disabled = false));
+    screen.querySelectorAll('.open-settings, .open-ach, .open-album').forEach((b) => (b.disabled = false));
   }
 
   fail(message) {

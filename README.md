@@ -78,6 +78,7 @@ src/
   Towel.js          Araç yüzeyine serilen, kıvrımlara uyan kurulama havlusu
   ToolRack.js       Alet rafı, etiketler, mağaza terminali
   Particles.js      Hacimli su/köpük huzmesi, sıçrama, sis, damla ve ışıltı partikülleri
+  Album.js          Garaj albümü: fotoğraflar, model koleksiyonu, müdavim kartları
   Regulars.js       Müdavimler: isim, favori araç, ziyaret başına hikâye, hediye
   Environment.js    3 seviyeli prosedürel garaj (Basit → Yenilenmiş → Neon stüdyo)
   EconomyManager.js Para, yükseltmeler, müşteri zamanlayıcı, kayıt, mağaza arayüzü
@@ -130,6 +131,7 @@ Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `ne
 - **Hava durumu:** her gün açık / yağmurlu / tuzlu kış; kir türünü ve ücreti değiştirir.
 - **Özel istekler:** müşteri bazen Acele ya da Kusursuz ister; 5★ ile teslimde bonus.
 - **Müdavimler:** 7 isimli müdavim (Hasan Amca, Zehra Öğretmen…) favori araçlarıyla ara sıra gelir; her ziyarette küçük bir hikâye ilerler, son ziyarette küçük bir hediye bırakırlar. Ceza yok: ≥3★ teslimde teşekkür satırı görürsün. Debug: `game.regular('hasan')`.
+- **Garaj albümü:** 📷 Albüm (başlangıç ekranı ve mağaza): ≥4★ işlerin önce/sonra fotoğrafları (en fazla 18, ayrı kayıt anahtarı), yıkadığın araç modelleri koleksiyonu ve müdavim kartları.
 - **Olay araçları:** Taksi, Düğün arabası, Çamurlu pikap (%12). Debug: `game.nextCar('standart','milano95','wedding')`, `game.setWeather('rain')`.
 
 ## İlerleme sistemleri

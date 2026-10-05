@@ -155,7 +155,7 @@ export class EconomyManager {
     return {
       money: START_MONEY, washed: 0, totalEarned: 0,
       rep: START_REP, day: 1, today: this.freshDay(START_REP),
-      life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, tar: 0, events: 0, requests: 0, streak: 0, bestStreak: 0, days: 0 }, ach: {}, goal: null, tutorialDone: false, weather: 'clear', regulars: {},
+      life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, tar: 0, events: 0, requests: 0, streak: 0, bestStreak: 0, days: 0, models: [] }, ach: {}, goal: null, tutorialDone: false, weather: 'clear', regulars: {},
       levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, claybar: 0, pinkfoam: 0, shop: 0 },
       settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', qualityAuto: true, qualityProbed: null, fps: false, touch: !!globalThis.matchMedia?.('(pointer: coarse)').matches },
     };

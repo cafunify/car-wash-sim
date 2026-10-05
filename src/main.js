@@ -14,6 +14,7 @@ import { CarManager } from './CarManager.js';
 import { CAR_CATALOG } from './CarModels.js';
 import { Effects } from './Particles.js';
 import { Tools, TOOL_DEFS, toolIndex } from './Tools.js';
+import { Album } from './Album.js';
 import { pickRegular, recordVisit, lineFor } from './Regulars.js';
 import { EconomyManager, SHOP_LEVEL_NAMES, CARS_PER_DAY } from './EconomyManager.js';
 import { HUD } from './HUD.js';
@@ -160,6 +161,7 @@ class Game {
 
     this.bindInput();
     this.bindSettings();
+    this.album = new Album({ economy: this.economy, audio: this.audio });
     this.tutorial = new Tutorial({ game: this });
     load.done();
     this.showAutoNote();
@@ -272,6 +274,7 @@ class Game {
       return;
     }
     const { car, res } = shot;
+    this.album.record({ car, res, before: car.beforeShot, after: img });
     this.dayEntries.push({ after: img, customer: car.customer, carName: car.def.name, stars: res.stars, total: res.total, pkg: car.package });
     this.hud.showDelivery({
       before: car.beforeShot, after: img, customer: car.customer, carName: car.def.name,
