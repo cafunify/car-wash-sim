@@ -118,6 +118,8 @@ npx @gltf-transform/cli optimize girdi.glb public/models/cars/dz/cikti.glb --tex
 
 Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `nextCar('premium', 'milano95')`, `setLevel(2)`, `stats()` (kuş/böcek için `bird`, `bugs`, `spots`, `birdHard`), `spots(kuş = 4, böcek = 40)` (aktif araca leke ekler, adım yoksa pakete katar), `etchBird()` (kuş pisliği kuruma süresini doldurur), `play()`, `fire()`, `teleport(x, z, bakX, bakY, bakZ)`.
 
+- **Kil Bar** (mağaza): katranlı araçlarda (Detaylı/Premium) "Katran" adımı; temiz ve ıslak yüzeyde etek/kapı altındaki koyu lekeleri ovarak söker.
+
 ## İlerleme sistemleri
 
 - **Rehber:** ilk oyunda 5 adımlık görev listesi; Ayarlar → Rehber → Yeniden oynat.

@@ -277,7 +277,8 @@ export class DirtVolume {
     const shineK = (brush.shine || 0) * k;
     const birdK = (brush.bird || 0) * k;
     const bugsK = (brush.bugs || 0) * k;
-    const touchSpot = (birdK || bugsK) && this.spotIdx.length > 0;
+    const tarK = (brush.tar || 0) * k;
+    const touchSpot = (birdK || bugsK || tarK) && this.spotIdx.length > 0;
     const foamBoost = brush.foamBoost || 0;
     const flow = brush.flow || 0;
     const needsClean = !!brush.shineNeedsClean;
@@ -318,6 +319,7 @@ export class DirtVolume {
             const b = spot[i];
             if (birdK && b) spot[i] = apply(b, -birdK * f * (b > BIRD_SOFT ? BIRD_HARD_RATE : 1));
             if (bugsK && spot[i + 1]) spot[i + 1] = apply(spot[i + 1], -bugsK * f * (1 + foamBoost * (data[i + 3] / 255)));
+            if (tarK && spot[i + 2]) spot[i + 2] = apply(spot[i + 2], -tarK * f);
           }
           if (!touchDetail) continue;
           if (dustK) detail[i] = apply(detail[i], -dustK * f);
@@ -382,7 +384,7 @@ export class DirtVolume {
           spot[j] = Math.max(BIRD_SOFT, spot[j] - birdK * ff - Math.random()) | 0;
           spotChanged = true;
         }
-      } else if (spot[j]) {
+      } else if ((j & 3) === 1 && spot[j]) {
         spot[j] = Math.max(0, spot[j] - bugK * ff - Math.random()) | 0;
         spotChanged = true;
       }
@@ -537,7 +539,7 @@ export class DirtVolume {
   /** Temizlik istatistikleri: her katman için temiz örneklerin oranı (parçası olmayan katman = 1) */
   stats() {
     const idx = this.sampleIdx;
-    const out = { mud: 1, stain: 1, dry: 1, foam: 0, foamCover: 0, rims: 1, tires: 1, glass: 1, polish: 1, bird: 1, bugs: 1, spots: 1, birdHard: 0 };
+    const out = { mud: 1, stain: 1, dry: 1, foam: 0, foamCover: 0, rims: 1, tires: 1, glass: 1, polish: 1, bird: 1, bugs: 1, spots: 1, tar: 1, birdHard: 0 };
     this.spotStats(out);
     if (!idx || !idx.length) return out;
     const { data, detail, sampleParts } = this;
@@ -591,22 +593,27 @@ export class DirtVolume {
   /** Noktasal kirlerin temiz oranı (kayıtlı leke voxelleri üzerinden; leke yoksa 1) */
   spotStats(out) {
     const { spot, spotIdx } = this;
-    let nb = 0, okb = 0, ng = 0, okg = 0, hard = 0;
+    let nb = 0, okb = 0, ng = 0, okg = 0, nt = 0, okt = 0, hard = 0;
     for (let n = 0; n < spotIdx.length; n++) {
       const i = spotIdx[n];
       const v = spot[i];
-      if ((i & 3) === 0) {
+      const ch = i & 3;
+      if (ch === 0) {
         nb++;
         if (v < CLEAN_THRESHOLD) okb++;
         else if (v > BIRD_SOFT) hard++;
-      } else {
+      } else if (ch === 1) {
         ng++;
         if (v < CLEAN_THRESHOLD) okg++;
+      } else if (ch === 2) {
+        nt++;
+        if (v < CLEAN_THRESHOLD) okt++;
       }
     }
     out.bird = nb ? okb / nb : 1;
     out.bugs = ng ? okg / ng : 1;
     out.spots = nb + ng ? (okb + okg) / (nb + ng) : 1;
+    out.tar = nt ? okt / nt : 1;
     out.birdHard = nb ? hard / nb : 0; // hâlâ sert kabuklu kuş pisliği oranı
     return out;
   }
@@ -745,7 +752,7 @@ vPart = aPart;`,
 vec3 dUVW = (vCarPos - uDirtMin) / uDirtSize;
 vec4 dirt = texture(uDirtTex, dUVW);
 vec4 det = texture(uDetailTex, dUVW);
-vec4 dSpot = texture(uSpotTex, dUVW); // r = kuş pisliği, g = böcek (b, a boş)
+vec4 dSpot = texture(uSpotTex, dUVW); // r = kuş pisliği, g = böcek, b = katran (a boş)
 float pPaint = 1.0 - step(0.5, vPart);
 float pGlass = step(0.5, vPart) * (1.0 - step(1.5, vPart));
 float pTire = step(1.5, vPart) * (1.0 - step(2.5, vPart));
@@ -815,6 +822,11 @@ float bugM = pDirt * smoothstep(0.1, 0.35, dSpot.g) * bugDots;
 vec3 bugCol = mix(vec3(0.05, 0.04, 0.02), vec3(0.62, 0.5, 0.1), step(0.55, bugCell));
 diffuseColor.rgb = mix(diffuseColor.rgb, bugCol, bugM * 0.92);
 
+// Katran/reçine: düzensiz kenarlı koyu, parlak lekeler
+float tarN = dNoise(vCarPos * 52.0 + 7.0);
+float tarM = pDirt * smoothstep(0.1, 0.3, dSpot.b * (0.75 + tarN * 0.5));
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.02, 0.018), tarM * 0.96);
+
 // Islaklık: renk koyulaşır
 diffuseColor.rgb *= 1.0 - wetM * 0.25 - dropM * 0.1;
 
@@ -839,6 +851,7 @@ roughnessFactor = mix(roughnessFactor, 0.55, glassM);
 roughnessFactor *= 1.0 - shineM * 0.65;
 roughnessFactor = mix(roughnessFactor, max(roughnessFactor, 0.78), stainM * 0.85);
 roughnessFactor = mix(roughnessFactor, 0.97, mudM);
+roughnessFactor = mix(roughnessFactor, 0.22, tarM);
 roughnessFactor = mix(roughnessFactor, 0.88 - birdSoft * 0.4, birdM);
 roughnessFactor = mix(roughnessFactor, 0.55, bugM);
 roughnessFactor = mix(roughnessFactor, 0.05, max(wetM * 0.55, dropM) * (1.0 - foamM));
@@ -868,7 +881,7 @@ float pulse = 0.55 + 0.45 * sin(uTime * 7.0);
 vec3 hl = remain * vec3(1.0, 0.42, 0.05) + needPolish * vec3(1.0, 0.8, 0.15)
         + pDirt * step(0.18, dirt.b) * (1.0 - remain) * (1.0 - needPolish) * vec3(0.1, 0.55, 1.0);
 // Kuş pisliği ve böcek lekesi mor vurgulanır
-float spotRemain = pDirt * max(step(0.12, dSpot.r), step(0.12, dSpot.g));
+float spotRemain = pDirt * max(max(step(0.12, dSpot.r), step(0.12, dSpot.g)), step(0.12, dSpot.b));
 hl = mix(hl, vec3(0.8, 0.3, 1.0), spotRemain);
 totalEmissiveRadiance += uHighlight * hl * pulse * 0.9;
 totalEmissiveRadiance += dropM * (1.0 - foamM) * vec3(0.022, 0.026, 0.03);

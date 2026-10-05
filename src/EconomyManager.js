@@ -1,5 +1,5 @@
 import { availablePackages, PACKAGES } from './Packages.js';
-import { TOWEL_ICON } from './Icons.js';
+import { TOWEL_ICON, CLAY_ICON } from './Icons.js';
 
 /**
  * Para, yükseltmeler, müşteri zamanlayıcısı / bahşiş, kayıt ve mağaza arayüzü.
@@ -95,6 +95,14 @@ export const UPGRADES = [
     effect: (l) => (l ? 'Rafta' : 'Detaylı Yıkama için gerekli'),
   },
   {
+    id: 'claybar',
+    name: 'Kil Bar',
+    icon: CLAY_ICON,
+    desc: 'Etek ve kapılardaki katran/reçine lekelerini ovarak söker. Katranlı araçlar Detaylı ve Premium paketlerde gelir.',
+    costs: [180],
+    effect: (l) => (l ? 'Rafta' : 'Katranlı araçlar için gerekli'),
+  },
+  {
     id: 'polisher',
     name: 'Cila Makinesi',
     icon: '✨',
@@ -145,8 +153,8 @@ export class EconomyManager {
     return {
       money: START_MONEY, washed: 0, totalEarned: 0,
       rep: START_REP, day: 1, today: this.freshDay(START_REP),
-      life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, streak: 0, bestStreak: 0, days: 0 }, ach: {}, goal: null, tutorialDone: false,
-      levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, pinkfoam: 0, shop: 0 },
+      life: { cars: 0, perfect: 0, tipCars: 0, spots: 0, tar: 0, streak: 0, bestStreak: 0, days: 0 }, ach: {}, goal: null, tutorialDone: false,
+      levels: { nozzle: 0, sponge: 0, towel: 0, rimcleaner: 0, tireshine: 0, glasscleaner: 0, polisher: 0, claybar: 0, pinkfoam: 0, shop: 0 },
       settings: { pinkfoam: true, music: true, musicVol: 70, sfxVol: 90, sens: 100, quality: 'medium', fps: false, touch: !!globalThis.matchMedia?.('(pointer: coarse)').matches },
     };
   }

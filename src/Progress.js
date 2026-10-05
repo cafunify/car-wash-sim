@@ -17,6 +17,7 @@ export const ACHIEVEMENTS = [
   { id: 'fifty', icon: '🏁', name: 'Usta eli', desc: '50 araç yıka', test: (s) => s.life.cars >= 50 },
   { id: 'perfect5', icon: '✨', name: 'Kusursuz', desc: '5 kusursuz (5★) iş çıkar', test: (s) => s.life.perfect >= 5 },
   { id: 'bird', icon: '🐦', name: 'Kuş pisliği ustası', desc: '5 kuş/böcekli aracı temizle', test: (s) => s.life.spots >= 5 },
+  { id: 'tar', icon: '🛠', name: 'Katran avcısı', desc: '5 katranlı aracı temizle', test: (s) => s.life.tar >= 5 },
   { id: 'tipper', icon: '💸', name: 'Bahşiş avcısı', desc: '10 teslimde bahşiş kazan', test: (s) => s.life.tipCars >= 10 },
   { id: 'rich', icon: '💰', name: 'Cep dolusu', desc: 'Toplam $2000 kazan', test: (s) => s.totalEarned >= 2000 },
   { id: 'rep', icon: '🌟', name: 'Mahallenin gözdesi', desc: 'İtibarını 4.5★ yap', test: (s) => s.rep >= 4.5 },
@@ -64,6 +65,7 @@ export class Progress {
     if (d.stars === 5) life.perfect += 1;
     if (d.tip > 0) life.tipCars += 1;
     if (d.hadSpots && d.complete) life.spots += 1;
+    if (d.hadTar && d.complete) life.tar += 1;
     life.streak = d.stars >= 4 ? life.streak + 1 : 0;
     life.bestStreak = Math.max(life.bestStreak, life.streak);
 
