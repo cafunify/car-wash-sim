@@ -1,3 +1,5 @@
+import { REGULARS, storyDone } from './Regulars.js';
+
 /**
  * Günlük hedefler ve başarımlar. Sayaçlar `economy.state.life`, açılan başarımlar `state.ach`,
  * günlük hedef `state.goal` içinde saklanır (eski kayıtlar varsayılanlarla birleşir).
@@ -26,6 +28,7 @@ export const ACHIEVEMENTS = [
   { id: 'rep', icon: '🌟', name: 'Mahallenin gözdesi', desc: 'İtibarını 4.5★ yap', test: (s) => s.rep >= 4.5 },
   { id: 'streak', icon: '🔥', name: 'Seri', desc: 'Üst üste 3 müşteriye ≥4★ aldır', test: (s) => s.life.bestStreak >= 3 },
   { id: 'upgrade', icon: '🛠', name: 'Yatırımcı', desc: 'İlk yükseltmeni al', test: (s) => Object.values(s.levels).some((v) => v > 0) },
+  { id: 'regulars', icon: '🏘', name: 'Mahalle dostu', desc: 'Tüm müdavimlerin hikâyesini tamamla', test: (s) => REGULARS.every((r) => storyDone(s, r)) },
   { id: 'day', icon: '🌇', name: 'Gün sonu', desc: 'Bir günü tamamla', test: (s) => s.life.days >= 1 },
 ];
 

@@ -102,7 +102,7 @@ export class CarManager {
     return this.pickFrom(fresh.length ? fresh : pool);
   }
 
-  spawn(maxTier = 0, pkg = PACKAGES.standart, forceId, { tar = false, weather = 'clear', event: forceEvent = null } = {}) {
+  spawn(maxTier = 0, pkg = PACKAGES.standart, forceId, { tar = false, weather = 'clear', event: forceEvent = null, regular = null } = {}) {
     const def = this.pickDef(maxTier, forceId);
     this.lastId = def.id;
     this.recent.push(def.id);
@@ -117,7 +117,7 @@ export class CarManager {
     root.updateMatrixWorld(true);
 
     const meshes = classifyCarParts(root, { atlas: def.atlas });
-    const event = pickEvent(def, forceEvent);
+    const event = pickEvent(def, regular ? 'none' : forceEvent); // müdavim araçları olay aracı olmaz
     recolorPaint(meshes, def, event?.color);
     const materials = new Set(meshes.map((m) => m.material));
     const wheels = [];
@@ -161,7 +161,8 @@ export class CarManager {
       package: pkg,
       event,
       latch: {},
-      customer: CUSTOMERS[(Math.random() * CUSTOMERS.length) | 0],
+      regular,
+      customer: regular?.name || CUSTOMERS[(Math.random() * CUSTOMERS.length) | 0],
       state: 'compiling',
       t: 0,
     };

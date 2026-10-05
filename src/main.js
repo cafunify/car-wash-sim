@@ -14,6 +14,7 @@ import { CarManager } from './CarManager.js';
 import { CAR_CATALOG } from './CarModels.js';
 import { Effects } from './Particles.js';
 import { Tools, TOOL_DEFS, toolIndex } from './Tools.js';
+import { pickRegular, recordVisit, lineFor } from './Regulars.js';
 import { EconomyManager, SHOP_LEVEL_NAMES, CARS_PER_DAY } from './EconomyManager.js';
 import { HUD } from './HUD.js';
 import { AudioManager } from './Audio.js';
@@ -184,7 +185,8 @@ class Game {
   spawnCar() {
     this.lastStats = null;
     const pkg = pickPackage(this.economy.owns, this.economy.state.rep);
-    const car = this.cars.spawn(this.economy.shopLevel, pkg, undefined, { tar: this.economy.level('claybar') > 0, weather: this.economy.state.weather });
+    const reg = pickRegular(this.economy.state, this.economy.shopLevel, (id) => this.cars.templates.has(id));
+    const car = this.cars.spawn(this.economy.shopLevel, pkg, reg?.car, { tar: this.economy.level('claybar') > 0, weather: this.economy.state.weather, regular: reg });
     this.applyCosmetics();
     // Araca özel paket: kuş pisliği / böcek yoksa "Kuş/Böcek" adımı yok
     this.hud.setPackage(car.package);
@@ -213,7 +215,8 @@ class Game {
       hint.classList.add('pulse');
     }
     const steps = car.package.steps.map((id) => STEPS[id].label).join(' ➔ ');
-    const ev = car.event ? `${car.event.icon} <b>${car.event.name}</b> geldi! (ücret ×${car.event.pay})` : `<b>${car.customer}</b> ${car.def.name} ile geldi!`;
+    const story = car.regular ? lineFor(this.economy.state, car.regular) : null;
+    const ev = story ? `🏘 <b>${car.customer}</b> geldi! <small>(${story.visit}. ziyaret)</small><br><small>${story.arrive}</small>` : car.event ? `${car.event.icon} <b>${car.event.name}</b> geldi! (ücret ×${car.event.pay})` : `<b>${car.customer}</b> ${car.def.name} ile geldi!`;
     const rq = this.economy.customer?.req ? `<br><small>İstek: ${this.economy.customer.req.label} — ${this.economy.customer.req.desc}</small>` : '';
     this.hud.message(`${ev}<br><small>${car.package.name}: ${steps}</small>${rq}`, 5);
   }
@@ -224,6 +227,7 @@ class Game {
     this.deliverArmed = 0;
     const res = this.economy.payout(progress, { etched: car?.birdEtched });
     // "Sonra" fotoğrafı bu karenin sonunda çekilir, teslim kartı onunla açılır
+    if (res && car?.regular) this.onRegularDelivered(car, res);
     if (res) {
       this.pendingShot = { kind: 'after', car, res };
       this.progress.onDelivery({ stars: res.stars, tip: res.tip, complete: res.complete, hadSpots: !!car?.package.steps.includes('spots'), hadTar: !!car?.package.steps.includes('tar'), eventCar: !!car?.event, bonus: res.bonus });
@@ -242,6 +246,17 @@ class Game {
       this.hud.toast(`+$${res.total}`, `Erken teslim · %${100 - res.missing} temiz · kesinti -$${res.penalty}`, 'warn');
       this.hud.setStepHint(`${car.customer} aracını eksik temizlikle teslim aldı`);
     }
+  }
+
+  /** Müdavim teslimi: hikâye ilerler, ≥3★ ile teşekkür yorumu, son ziyarette hediye */
+  onRegularDelivered(car, res) {
+    const r = recordVisit(this.economy.state, car.regular);
+    if (res.stars >= 3) res.comment = r.thanks;
+    if (r.gift) {
+      this.economy.addMoney(r.gift);
+      this.hud.toast(`🏘 ${car.customer} hikâyesi tamam`, `Küçük bir teşekkür: +$${r.gift}`);
+    }
+    this.economy.save();
   }
 
   /** Kare sonunda (ana çizimden önce) bekleyen önce/sonra fotoğrafını çek */
@@ -1010,6 +1025,17 @@ class Game {
         this.applyCosmetics();
         this.hud.setPackage(car.package);
         this.hints = new Set();
+      },
+      regular: async (id) => {
+        const reg = pickRegular(this.economy.state, this.economy.shopLevel, () => true, id);
+        if (!reg) return null;
+        await this.cars.loadDef(CAR_CATALOG.find((d) => d.id === reg.car));
+        this.cars.disposeCar();
+        const car = this.cars.spawn(this.economy.shopLevel, pickPackage(this.economy.owns), reg.car, { weather: this.economy.state.weather, regular: reg });
+        this.applyCosmetics();
+        this.hud.setPackage(car.package);
+        this.hints = new Set();
+        return reg.name;
       },
       setWeather: (w) => { this.economy.state.weather = w; this.economy.save(); this.hud.setWeather(w); },
       teleport: (x, z, lookX = 0, lookY = 1, lookZ = 0) => {

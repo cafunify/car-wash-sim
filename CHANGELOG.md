@@ -3,6 +3,11 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.10.0
+- Müdavimler: 7 isimli müşteri favori araçlarıyla ara sıra gelir, her ziyarette küçük bir hikâye anlatır (3 ziyaret), son ziyarette hediye bırakır
+- Cezasız tasarım: hikâye yıldızdan bağımsız ilerler; ≥3★ teslimde müdavimin teşekkür yorumu görünür
+- Yeni başarım: Mahalle dostu (tüm hikâyeleri tamamla)
+
 ## v0.9.2
 - FPS göstergesi para panelinin soluna taşındı (gün paneline binmiyor)
 - Otomatik grafik: ilk açılışta GPU adı, CPU/RAM ve kısa kare ölçümüyle cihaza uygun seviye seçilir (yazılımsal/entegre GPU düşük, güçlü GPU yüksek); giriş ekranında bildirilir
