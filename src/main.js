@@ -163,8 +163,9 @@ class Game {
     this.bindInput();
     this.bindSettings();
     this.decor = new DecorView(scene, ROOM.halfX);
-    this.applyDecor();
     this.album = new Album({ economy: this.economy, audio: this.audio });
+    this.album.onChange = () => this.decor.setPhotos(this.album.best());
+    this.applyDecor();
     this.tutorial = new Tutorial({ game: this });
     load.done();
     this.showAutoNote();
@@ -259,6 +260,7 @@ class Game {
     this.env.setSignText(d.sign);
     this.decor.apply(d);
     this.audio.setStation(d.radio);
+    this.decor.setPhotos(this.album?.best() || []);
   }
 
   /** Müdavim teslimi: hikâye ilerler, ≥3★ ile teşekkür yorumu, son ziyarette hediye */
@@ -806,6 +808,10 @@ class Game {
 
   interact() {
     const h = this.rackHover;
+    if (!h && this.decor.nearCat(this.camera.position)) {
+      this.decor.purr();
+      return this.hud.toast('🐈 Mırr…', 'Kedi gözünü bile açmadan mırıldandı', 'info');
+    }
     if (!h) return this.hud.hint('Aletler aracın sağındaki rafta — rafa bakıp E\'ye bas', 2.5);
     if (h.shop) return this.openShop();
     if (this.tools.index === h.tool) this.tools.putDown();
@@ -979,6 +985,7 @@ class Game {
 
     this.updateRackHover();
     this.rack.update(this.time);
+    this.decor.update(dt, this.time);
     this.cars.update(dt, this.time);
     this.updateProgress(dt);
     this.audio.update(dt);

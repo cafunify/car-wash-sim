@@ -408,6 +408,9 @@ export class EconomyManager {
       if (i >= 0) d.posters.splice(i, 1);
       else if (d.owned[set.dhang] && d.posters.length < MAX_POSTERS) d.posters.push(set.dhang);
       this.audio.click();
+    } else if (set.neon) {
+      d.neon = set.neon;
+      this.audio.click();
     } else if (set.radio) {
       d.radio = set.radio;
       this.audio.click();

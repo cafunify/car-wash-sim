@@ -3,6 +3,10 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v1.1.0
+- Yeni dekorlar: dükkân kedisi (nefes alır, E ile sevilir), buharı tüten çay köşesi, hafif titreyen ışık dizisi, neon "AÇIK" tabelası (pembe/camgöbeği/kehribar), albüm duvarı (en iyi 3 fotoğraf)
+- Bitkiler daha dolgun ve yapraklı yeniden çizildi (saksı bitkisi, sarkan yapraklı palmiye)
+
 ## v1.0.0
 - Dükkân kişiselleştirme (mağazada yeni Dekor sekmesi): özel tabela yazısı (üç garaj seviyesinde de görünür, uzun yazı sığacak şekilde küçülür), duvar posterleri (en fazla 3 asılı), saksı bitkisi ve palmiye
 - Radyo istasyonları: Klasik Lo-fi, Pazar Sabahı (majör), Gece Yarısı (minör)

@@ -133,7 +133,7 @@ Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `ne
 - **Özel istekler:** müşteri bazen Acele ya da Kusursuz ister; 5★ ile teslimde bonus.
 - **Müdavimler:** 7 isimli müdavim (Hasan Amca, Zehra Öğretmen…) favori araçlarıyla ara sıra gelir; her ziyarette küçük bir hikâye ilerler, son ziyarette küçük bir hediye bırakırlar. Ceza yok: ≥3★ teslimde teşekkür satırı görürsün. Debug: `game.regular('hasan')`.
 - **Garaj albümü:** 📷 Albüm (başlangıç ekranı ve mağaza): ≥4★ işlerin önce/sonra fotoğrafları (en fazla 18, ayrı kayıt anahtarı), yıkadığın araç modelleri koleksiyonu ve müdavim kartları.
-- **Dükkân kişiselleştirme:** Mağaza → 🪴 Dekor sekmesi (kozmetik, denge etkisi yok): özel tabela yazısı (her seviyede), 3 duvar posteri (3 tanesi müdavim hediyesi), saksı bitkisi ve palmiye, radyo istasyonları (Klasik Lo-fi, Pazar Sabahı, Gece Yarısı).
+- **Dükkân kişiselleştirme:** Mağaza → 🪴 Dekor sekmesi (kozmetik, denge etkisi yok): özel tabela yazısı (her seviyede), 3 duvar posteri (3 tanesi müdavim hediyesi), saksı bitkisi ve palmiye, radyo istasyonları (Klasik Lo-fi, Pazar Sabahı, Gece Yarısı), 🐈 dükkân kedisi (yanına gidip E ile sev), 🫖 çay köşesi, 💡 ışık dizisi, neon "AÇIK" tabelası (3 renk) ve 📸 albüm duvarı (albümdeki en iyi 3 iş çerçeveli asılır).
 - **Olay araçları:** Taksi, Düğün arabası, Çamurlu pikap (%12). Debug: `game.nextCar('standart','milano95','wedding')`, `game.setWeather('rain')`.
 
 ## İlerleme sistemleri

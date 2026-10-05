@@ -55,6 +55,12 @@ export class Album {
       this.photos.splice(this.photos.findIndex((p) => p.stars === min), 1);
     }
     this.save();
+    this.onChange?.();
+  }
+
+  /** Albüm duvarı için: en yüksek yıldızlı/ücretli 3 işin "sonra" fotoğrafı */
+  best(n = 3) {
+    return [...this.photos].sort((a, b) => b.stars - a.stars || b.total - a.total).slice(0, n).map((p) => p.after);
   }
 
   bind() {
