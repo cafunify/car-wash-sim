@@ -19,6 +19,8 @@ import { ToolRack } from './ToolRack.js';
 import { Snapshot } from './Snapshot.js';
 import { LoadScreen, fitStartScreen } from './LoadScreen.js';
 import { TouchControls } from './TouchControls.js';
+import { Progress } from './Progress.js';
+import { Tutorial } from './Tutorial.js';
 import { PACKAGES, STEPS, pickPackage, packageProgress } from './Packages.js';
 
 const _regionBox = new THREE.Box3();
@@ -118,6 +120,7 @@ class Game {
     this.snapshot = new Snapshot(renderer, scene);
     this.dayEntries = [];
     this.pendingShot = null;
+    this.progress = new Progress({ economy: this.economy, hud: this.hud, audio: this.audio });
     // Gün bitmiş ama rapor kapatılmadan sayfa yenilendiyse yeni güne geç
     if (this.economy.dayOver) this.economy.startNextDay();
     this.tools = new Tools({
@@ -151,6 +154,7 @@ class Game {
 
     this.bindInput();
     this.bindSettings();
+    this.tutorial = new Tutorial({ game: this });
     load.done();
     renderer.setAnimationLoop(() => this.frame());
     this.exposeDebug();
@@ -172,6 +176,7 @@ class Game {
   }
 
   spawnCar() {
+    this.lastStats = null;
     const pkg = pickPackage(this.economy.owns, this.economy.state.rep);
     const car = this.cars.spawn(this.economy.shopLevel, pkg);
     this.applyCosmetics();
@@ -211,7 +216,11 @@ class Game {
     this.deliverArmed = 0;
     const res = this.economy.payout(progress, { etched: car?.birdEtched });
     // "Sonra" fotoğrafı bu karenin sonunda çekilir, teslim kartı onunla açılır
-    if (res) this.pendingShot = { kind: 'after', car, res };
+    if (res) {
+      this.pendingShot = { kind: 'after', car, res };
+      this.progress.onDelivery({ stars: res.stars, tip: res.tip, complete: res.complete, hadSpots: !!car?.package.steps.includes('spots') });
+      this.tutorial?.onDelivered();
+    }
     this.rack.setHighlight(null);
     if (res?.complete) {
       this.cars.complete(true);
@@ -255,6 +264,7 @@ class Game {
 
   endDay() {
     this.dayEnded = true;
+    this.progress.onDayEnd();
     this.firing = false;
     this.keys.clear();
     this.audio.complete();
@@ -269,6 +279,7 @@ class Game {
     this.dayEntries = [];
     this.hud.hideDayReport();
     this.economy.startNextDay();
+    this.progress.ensureGoal();
     this.audio.click();
     if (this.freeMode) this.enterFree();
     else this.requestLock();
@@ -381,6 +392,13 @@ class Game {
       this.audio.click();
     });
     $('set-fps').addEventListener('change', (e) => { st.fps = e.target.checked; commit(); });
+    $('set-tutorial').addEventListener('click', () => {
+      st.tutorialDone = false;
+      this.economy.save();
+      this.tutorial.start();
+      panel.classList.add('hidden');
+      this.audio.click();
+    });
     $('set-touch').addEventListener('change', (e) => { st.touch = e.target.checked; commit(); });
     document.querySelectorAll('.open-settings').forEach((b) => b.addEventListener('click', () => {
       refresh();
@@ -413,6 +431,8 @@ class Game {
 
   onUpgrade(id, level) {
     if (id === 'shop' || id === 'reset') this.applyLevel(this.economy.shopLevel);
+    if (id === 'reset') this.progress.ensureGoal();
+    else this.progress?.check();
     if (id === 'reset' && this.tools.onRack && this.tools.isLocked(this.tools.index)) this.tools.putDown();
     this.rack.refresh();
     this.applyCosmetics();
@@ -837,6 +857,7 @@ class Game {
     this.mouseDist = 0;
 
     if (playing) {
+      this.tutorial?.update(dt);
       this.updatePlayer(dt);
       this.economy.update(dt);
     }

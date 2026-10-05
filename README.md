@@ -118,6 +118,12 @@ npx @gltf-transform/cli optimize girdi.glb public/models/cars/dz/cikti.glb --tex
 
 Tarayıcı konsolunda `game`: `cleanAll()`, `addMoney(1000)`, `unlockAll()`, `nextCar('premium', 'milano95')`, `setLevel(2)`, `stats()` (kuş/böcek için `bird`, `bugs`, `spots`, `birdHard`), `spots(kuş = 4, böcek = 40)` (aktif araca leke ekler, adım yoksa pakete katar), `etchBird()` (kuş pisliği kuruma süresini doldurur), `play()`, `fire()`, `teleport(x, z, bakX, bakY, bakZ)`.
 
+## İlerleme sistemleri
+
+- **Rehber:** ilk oyunda 5 adımlık görev listesi; Ayarlar → Rehber → Yeniden oynat.
+- **Günlük hedef:** her gün rastgele bir hedef, para ödülü; gün panelinde ilerleme.
+- **Başarımlar:** 12 başarım, başlangıç ekranı ve mağazadaki 🏆 düğmesiyle açılır. Sayaçlar kayıtta (`life`, `ach`, `goal`) saklanır.
+
 ## Varlıklar ve lisans
 
 - Araç modelleri: **Daniel Zhabotinsky** — [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/), ayrıntılı künye:

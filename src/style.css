@@ -864,3 +864,26 @@ body.touch-mode .start-side .controls-grid, body.touch-mode .start-side .tip { d
 .dc-stars .star:nth-child(4) { animation-delay: 3.0s; }
 .dc-stars .star:nth-child(5) { animation-delay: 3.2s; }
 @keyframes starPop { from { opacity: 0; transform: scale(0.2) rotate(-40deg); } }
+
+/* Günlük hedef, rehber, başarımlar */
+.day-goal { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text); max-width: 190px; }
+.day-goal.done { color: var(--good); }
+#tutorial { top: 190px; left: 18px; width: 270px; padding: 12px 14px; pointer-events: auto; }
+.tut-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.tut-head .btn-ghost { padding: 3px 10px; font-size: 11px; }
+#tutorial ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+#tutorial li { display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; color: var(--muted); }
+#tutorial li i { font-style: normal; flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: rgba(255, 255, 255, 0.1); }
+#tutorial li.now { color: var(--text); }
+#tutorial li.now i { background: var(--accent); color: #03131c; box-shadow: 0 0 10px var(--accent); }
+#tutorial li.done { color: var(--good); text-decoration: line-through; opacity: 0.8; }
+#tutorial li.done i { background: var(--good); color: #03130a; }
+#ach { z-index: 15; }
+.ach-card { width: min(720px, 100%); }
+#ach-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 8px; }
+.ach-item { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); opacity: 0.6; }
+.ach-item.got { opacity: 1; border-color: rgba(255, 211, 90, 0.45); background: rgba(255, 211, 90, 0.08); }
+.ach-icon { font-size: 26px; }
+.ach-item b { display: block; font-size: 14px; }
+.ach-item small { color: var(--muted); font-size: 12px; }
+body.touch-mode #tutorial { top: 120px; transform: scale(0.8); transform-origin: top left; }

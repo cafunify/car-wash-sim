@@ -40,6 +40,15 @@ export class HUD {
     this.heldEl.innerHTML = `<span class="icon">${def.icon}</span><span><b>${def.name}</b><small>${sub}</small></span>`;
   }
 
+  /** Günlük hedef satırı (gün panelinde) */
+  setGoal(text, done) {
+    const el = this.$('goal-line');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('done', !!done);
+    el.classList.toggle('hidden', !text);
+  }
+
   /** Adım tamamlanınca adım çipi kısa süre parlar */
   pulseStep(id) {
     const el = this.layerEls[id];
