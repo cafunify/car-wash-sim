@@ -3,6 +3,12 @@
 Her sürüm `main`'e birleşince GitHub Releases'e otomatik yayınlanır (sürüm numarası `package.json`'dan alınır).
 Yeni sürüm için: `npm version <x.y.z> --no-git-tag-version` + aşağıya `## vX.Y.Z` bölümü ekle.
 
+## v0.9.1
+- Hava durumu: her gün açık, yağmurlu (çamurlu araçlar, ücret ×1.1) ya da tuzlu kış (tuz lekeli araçlar, ücret ×1.15); gün panelinde ve raporda görünür
+- Özel müşteri istekleri: Acele (süre ×0.6) ve Kusursuz; 5★ ile teslimde bonus
+- Olay araçları: Taksi, Düğün arabası (kusursuz istek, ×1.6), Çamurlu pikap; %12 şansla gelir
+- Yeni başarımlar (Olay avcısı, Müşteri dostu) ve günlük hedef "özel isteği yerine getir"
+
 ## v0.9.0
 - Kil Bar: yeni alet (mağazada $180) ve katran/reçine lekesi. Etek ve kapı altlarındaki koyu leke kil barla ovularak sökülür
 - Katranlı araçlar yalnızca kil barı olan oyuncuya ve Detaylı/Premium paketlerde gelir; yeni "Katran" adımı durulamadan sonra

@@ -8,6 +8,7 @@ export const GOALS = [
   { id: 'tips', text: '3 teslimde bahşiş kazan', target: 3, reward: 40, hit: (d) => d.tip > 0 },
   { id: 'spots', text: '2 kuş/böcekli aracı temizle', target: 2, reward: 50, hit: (d) => d.hadSpots && d.complete },
   { id: 'cars', text: 'Günün 6 müşterisini tamamla', target: 6, reward: 60, hit: () => true },
+  { id: 'requests', text: '1 özel müşteri isteğini yerine getir', target: 1, reward: 60, hit: (d) => d.bonus > 0 },
 ];
 
 export const ACHIEVEMENTS = [
@@ -18,6 +19,8 @@ export const ACHIEVEMENTS = [
   { id: 'perfect5', icon: '✨', name: 'Kusursuz', desc: '5 kusursuz (5★) iş çıkar', test: (s) => s.life.perfect >= 5 },
   { id: 'bird', icon: '🐦', name: 'Kuş pisliği ustası', desc: '5 kuş/böcekli aracı temizle', test: (s) => s.life.spots >= 5 },
   { id: 'tar', icon: '🛠', name: 'Katran avcısı', desc: '5 katranlı aracı temizle', test: (s) => s.life.tar >= 5 },
+  { id: 'event', icon: '🚕', name: 'Olay avcısı', desc: '3 olay aracı (taksi, düğün, çamurlu pikap) yıka', test: (s) => s.life.events >= 3 },
+  { id: 'request', icon: '📋', name: 'Müşteri dostu', desc: '5 özel isteği yerine getir', test: (s) => s.life.requests >= 5 },
   { id: 'tipper', icon: '💸', name: 'Bahşiş avcısı', desc: '10 teslimde bahşiş kazan', test: (s) => s.life.tipCars >= 10 },
   { id: 'rich', icon: '💰', name: 'Cep dolusu', desc: 'Toplam $2000 kazan', test: (s) => s.totalEarned >= 2000 },
   { id: 'rep', icon: '🌟', name: 'Mahallenin gözdesi', desc: 'İtibarını 4.5★ yap', test: (s) => s.rep >= 4.5 },
@@ -66,6 +69,8 @@ export class Progress {
     if (d.tip > 0) life.tipCars += 1;
     if (d.hadSpots && d.complete) life.spots += 1;
     if (d.hadTar && d.complete) life.tar += 1;
+    if (d.eventCar) life.events += 1;
+    if (d.bonus > 0) life.requests += 1;
     life.streak = d.stars >= 4 ? life.streak + 1 : 0;
     life.bestStreak = Math.max(life.bestStreak, life.streak);
 

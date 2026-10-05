@@ -887,3 +887,7 @@ body.touch-mode .start-side .controls-grid, body.touch-mode .start-side .tip { d
 .ach-item b { display: block; font-size: 14px; }
 .ach-item small { color: var(--muted); font-size: 12px; }
 body.touch-mode #tutorial { top: 120px; transform: scale(0.8); transform-origin: top left; }
+
+/* Hava durumu, özel istek */
+.day-weather { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 12px; max-width: 190px; color: #a8d8ff; }
+.customer-req { margin: 6px 0; padding: 5px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; background: rgba(255, 211, 90, 0.14); border: 1px solid rgba(255, 211, 90, 0.45); color: #ffe39a; }

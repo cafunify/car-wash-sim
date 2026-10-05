@@ -8,6 +8,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 import { Environment, WALK_BOUNDS } from './Environment.js';
 import { REGIONS } from './DirtVolume.js';
+import { WEATHERS } from './Weather.js';
 import { CarManager } from './CarManager.js';
 import { CAR_CATALOG } from './CarModels.js';
 import { Effects } from './Particles.js';
@@ -178,7 +179,7 @@ class Game {
   spawnCar() {
     this.lastStats = null;
     const pkg = pickPackage(this.economy.owns, this.economy.state.rep);
-    const car = this.cars.spawn(this.economy.shopLevel, pkg, undefined, { tar: this.economy.level('claybar') > 0 });
+    const car = this.cars.spawn(this.economy.shopLevel, pkg, undefined, { tar: this.economy.level('claybar') > 0, weather: this.economy.state.weather });
     this.applyCosmetics();
     // Araca özel paket: kuş pisliği / böcek yoksa "Kuş/Böcek" adımı yok
     this.hud.setPackage(car.package);
@@ -207,7 +208,9 @@ class Game {
       hint.classList.add('pulse');
     }
     const steps = car.package.steps.map((id) => STEPS[id].label).join(' ➔ ');
-    this.hud.message(`<b>${car.customer}</b> ${car.def.name} ile geldi!<br><small>${car.package.name}: ${steps}</small>`, 4.5);
+    const ev = car.event ? `${car.event.icon} <b>${car.event.name}</b> geldi! (ücret ×${car.event.pay})` : `<b>${car.customer}</b> ${car.def.name} ile geldi!`;
+    const rq = this.economy.customer?.req ? `<br><small>İstek: ${this.economy.customer.req.label} — ${this.economy.customer.req.desc}</small>` : '';
+    this.hud.message(`${ev}<br><small>${car.package.name}: ${steps}</small>${rq}`, 5);
   }
 
   /** Aracı teslim et. progress < 1 ise erken teslim: eksik her %1 için 2$ kesilir */
@@ -218,7 +221,7 @@ class Game {
     // "Sonra" fotoğrafı bu karenin sonunda çekilir, teslim kartı onunla açılır
     if (res) {
       this.pendingShot = { kind: 'after', car, res };
-      this.progress.onDelivery({ stars: res.stars, tip: res.tip, complete: res.complete, hadSpots: !!car?.package.steps.includes('spots'), hadTar: !!car?.package.steps.includes('tar') });
+      this.progress.onDelivery({ stars: res.stars, tip: res.tip, complete: res.complete, hadSpots: !!car?.package.steps.includes('spots'), hadTar: !!car?.package.steps.includes('tar'), eventCar: !!car?.event, bonus: res.bonus });
       this.tutorial?.onDelivered();
     }
     this.rack.setHighlight(null);
@@ -227,7 +230,7 @@ class Game {
       this.audio.complete();
       const box = this.cars.worldBox(new THREE.Box3());
       if (box) this.effects.sparkleBurst(box);
-      this.hud.toast(`+$${res.total}`, `${car.package.name}${res.tip > 0 ? ` · bahşiş +$${res.tip} ⏱` : ` · ${car.customer} memnun!`}`);
+      this.hud.toast(`+$${res.total}`, `${car.package.name}${res.tip > 0 ? ` · bahşiş +$${res.tip} ⏱` : ` · ${car.customer} memnun!`}${res.bonus > 0 ? ` · ${res.req.label} bonusu +$${res.bonus}` : ''}`);
       this.hud.setProgress(1, Object.fromEntries(car.package.steps.map((l) => [l, 1])), null, true);
     } else if (res) {
       this.cars.complete(false);
@@ -269,7 +272,7 @@ class Game {
     this.keys.clear();
     this.audio.complete();
     const st = this.economy.state;
-    this.hud.showDayReport({ day: st.day, today: st.today, rep: st.rep, entries: this.dayEntries, perDay: CARS_PER_DAY });
+    this.hud.showDayReport({ day: st.day, today: st.today, rep: st.rep, entries: this.dayEntries, perDay: CARS_PER_DAY, weather: st.weather });
     if (this.controls.isLocked) this.controls.unlock();
     else this.freeActive = false;
   }
@@ -284,7 +287,8 @@ class Game {
     if (this.freeMode) this.enterFree();
     else this.requestLock();
     this.waitTimer = 1.2;
-    this.hud.message(`☀ Gün ${this.economy.state.day} başladı<br><small>Bugün ${CARS_PER_DAY} müşteri gelecek · itibarın ${this.economy.state.rep.toFixed(1)} ★</small>`, 3.5);
+    const w = WEATHERS[this.economy.state.weather];
+    this.hud.message(`${w.icon} Gün ${this.economy.state.day} başladı · ${w.label}<br><small>${w.note || `Bugün ${CARS_PER_DAY} müşteri gelecek`} · itibarın ${this.economy.state.rep.toFixed(1)} ★</small>`, 4);
   }
 
   /** T: teslim (tam temizse hemen; eksikse ilk basışta ücret önizlemesi, ikinci basışta onay) */
@@ -926,15 +930,16 @@ class Game {
         this.economy.save();
         this.onUpgrade('unlock', 1);
       },
-      nextCar: async (pkgId, carId) => {
+      nextCar: async (pkgId, carId, eventId) => {
         if (carId) await this.cars.loadDef(CAR_CATALOG.find((d) => d.id === carId));
         this.cars.disposeCar();
         const pkg = PACKAGES[pkgId] || pickPackage(this.economy.owns);
-        const car = this.cars.spawn(this.economy.shopLevel, pkg, carId, { tar: this.economy.level('claybar') > 0 });
+        const car = this.cars.spawn(this.economy.shopLevel, pkg, carId, { tar: this.economy.level('claybar') > 0, weather: this.economy.state.weather, event: eventId });
         this.applyCosmetics();
         this.hud.setPackage(car.package);
         this.hints = new Set();
       },
+      setWeather: (w) => { this.economy.state.weather = w; this.economy.save(); this.hud.setWeather(w); },
       teleport: (x, z, lookX = 0, lookY = 1, lookZ = 0) => {
         this.camera.position.set(x, this.eye, z);
         this.camera.lookAt(lookX, lookY, lookZ);
